@@ -44,6 +44,7 @@ export default function WorkoutScreen() {
     // Fetch always from server, fallback to template
     useEffect(() => {
         let isActive = true
+
         async function loadPlan() {
             setLoading(true)
             if (!user?.username || !sex || !objective || !trainingDays) {
@@ -52,51 +53,69 @@ export default function WorkoutScreen() {
                 return
             }
 
-            const key = `workoutPlan:${user.username}`
+            // 1) Fetch from server
             try {
                 const res = await fetch(
                     `${BACKEND}/getWorkoutPlan?username=${encodeURIComponent(user.username)}`
                 )
                 const contentType = res.headers.get('content-type') || ''
                 if (res.ok && contentType.includes('application/json')) {
-                    const json = await res.json()
-                    if (isActive) {
-                        if (json.plan) {
-                            setPlans(json.plan)
-                        } else {
-                            const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
-                            const all = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
-                            setPlans(all)
-                            // persist new template
-                            fetch(`${BACKEND}/saveWorkoutPlan`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ username: user.username, plan: all }),
-                            }).catch()
-                            AsyncStorage.setItem(key, JSON.stringify(all)).catch()
+                    const { plan } = await res.json()
+
+                    // Only accept it if its number of days matches the current trainingDays
+                    if (
+                        Array.isArray(plan) &&
+                        Array.isArray(plan[0]) &&
+                        plan[0].length === trainingDays
+                    ) {
+                        if (isActive) {
+                            setPlans(plan)
+                            setLoading(false)
+                            return
                         }
-                        setLoading(false)
-                        return
+                    } else {
+                        // Stored plan is “out of date” (wrong split) → fall through to regenerate
+                        console.log(
+                            `Stored plan has ${plan?.[0]?.length} days but user requested ${trainingDays}. Regenerating.`
+                        )
                     }
                 } else {
-                    const text = await res.text()
-                    console.warn(`getWorkoutPlan returned status ${res.status}: ${text}`)
+                    console.warn(`getWorkoutPlan returned ${res.status}`)
                 }
             } catch (e) {
-                console.warn('Server fetch failed, loading template.', e)
+                console.warn('Error fetching plan from server', e)
             }
 
-            if (isActive) {
-                const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
-                const all = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
-                setPlans(all)
-                setLoading(false)
-            }
+            // 2) Fallback / regeneration
+            //   Build a fresh template for the *current* trainingDays,
+            //   then overwrite both AsyncStorage and the server.
+            const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays]
+                ?? splitKeysByDays[trainingDays].map(() => [])
+            const fresh = Array.from({ length: TOTAL_WEEKS }, () =>
+                tpl.map(day => day.map(ex => ({ ...ex })))
+            )
+            if (isActive) setPlans(fresh)
+
+            await AsyncStorage.setItem(
+                `workoutPlan:${user.username}`,
+                JSON.stringify(fresh)
+            )
+            // overwrite server record
+            fetch(`${BACKEND}/saveWorkoutPlan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user.username, plan: fresh }),
+            }).catch(e => console.warn('Save fresh plan failed', e))
+
+            setLoading(false)
         }
 
         loadPlan()
-        return () => { isActive = false }
+        return () => {
+            isActive = false
+        }
     }, [user?.username, sex, objective, trainingDays])
+
 
     // Swap handler: only replace the selected instance
     const doSwap = async (newEx: ExercisePlanItem) => {
@@ -202,6 +221,7 @@ export default function WorkoutScreen() {
                         <Text>Equip: {selectedExercise?.equipment}</Text>
                         <Text>Primary: {selectedExercise?.primary_muscle_group}</Text>
                         {selectedExercise?.secondary_muscle_group && (<Text>Secondary: {selectedExercise.secondary_muscle_group}</Text>)}
+                        {selectedExercise?.tertiary_muscle_group && (<Text>Tertiary: {selectedExercise.tertiary_muscle_group}</Text>)}
                         <Pressable onPress={() => setDescModalVisible(false)} style={styles.closeBtn}>
                             <Text style={styles.closeText}>Close</Text>
                         </Pressable>
