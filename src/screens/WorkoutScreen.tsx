@@ -1,10 +1,22 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react'
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Pressable } from 'react-native'
+import {
+    View,
+    Text,
+    FlatList,
+    StyleSheet,
+    ActivityIndicator,
+    TouchableOpacity,
+    Modal,
+    Pressable,
+} from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect } from '@react-navigation/native'
 import { WorkoutContext } from '../context/WorkoutContext'
 import { UserContext } from '../context/UserContext'
-import { PlanTemplates, ExercisePlanItem } from '../components/WorkoutTemplates'
+import {
+    PlanTemplates,
+    ExercisePlanItem,
+} from '../components/WorkoutTemplates'
 
 type SplitDay = { name: string }
 const splitKeysByDays: Record<number, SplitDay[]> = {
@@ -18,9 +30,15 @@ const splitKeysByDays: Record<number, SplitDay[]> = {
 
 const TOTAL_WEEKS = 12 // 3 months × 4 weeks
 const BACKEND = 'http://10.0.2.2:3000'
+// Map difficulty to rank
+const difficultyRank: Record<'beginner' | 'intermediate' | 'advanced', number> = {
+    beginner: 1,
+    intermediate: 2,
+    advanced: 3,
+}
 
 export default function WorkoutScreen() {
-    const { sex, objective, trainingDays, reload } = useContext(WorkoutContext)
+    const { sex, objective, trainingDays, experience, reload } = useContext(WorkoutContext)
     const { user } = useContext(UserContext)
 
     const [plans, setPlans] = useState<ExercisePlanItem[][][]>([])
@@ -41,19 +59,21 @@ export default function WorkoutScreen() {
         }, [reload])
     )
 
-    // Fetch always from server, fallback to template
+    // Fetch always from server or regenerate on split/experience mismatch
     useEffect(() => {
         let isActive = true
-
         async function loadPlan() {
             setLoading(true)
-            if (!user?.username || !sex || !objective || !trainingDays) {
+            if (!user?.username || !sex || !objective || !trainingDays || !experience) {
                 setPlans([])
                 setLoading(false)
                 return
             }
+            const userRank = difficultyRank[experience]
+            const key = `workoutPlan:${user.username}`
 
-            // 1) Fetch from server
+            // 1) Try server
+            let serverPlan: ExercisePlanItem[][][] | null = null
             try {
                 const res = await fetch(
                     `${BACKEND}/getWorkoutPlan?username=${encodeURIComponent(user.username)}`
@@ -61,92 +81,74 @@ export default function WorkoutScreen() {
                 const contentType = res.headers.get('content-type') || ''
                 if (res.ok && contentType.includes('application/json')) {
                     const { plan } = await res.json()
-
-                    // Only accept it if its number of days matches the current trainingDays
-                    if (
-                        Array.isArray(plan) &&
-                        Array.isArray(plan[0]) &&
-                        plan[0].length === trainingDays
-                    ) {
-                        if (isActive) {
-                            setPlans(plan)
-                            setLoading(false)
-                            return
-                        }
-                    } else {
-                        // Stored plan is “out of date” (wrong split) → fall through to regenerate
-                        console.log(
-                            `Stored plan has ${plan?.[0]?.length} days but user requested ${trainingDays}. Regenerating.`
-                        )
-                    }
+                    serverPlan = Array.isArray(plan) ? plan : null
                 } else {
-                    console.warn(`getWorkoutPlan returned ${res.status}`)
+                    await res.text() // drain
                 }
-            } catch (e) {
-                console.warn('Error fetching plan from server', e)
+            } catch {
+                // network error
             }
 
-            // 2) Fallback / regeneration
-            //   Build a fresh template for the *current* trainingDays,
-            //   then overwrite both AsyncStorage and the server.
-            const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays]
-                ?? splitKeysByDays[trainingDays].map(() => [])
-            const fresh = Array.from({ length: TOTAL_WEEKS }, () =>
-                tpl.map(day => day.map(ex => ({ ...ex })))
-            )
+            // Validate serverPlan: correct split & difficulty
+            const validServerPlan = serverPlan && Array.isArray(serverPlan[0]) &&
+                serverPlan[0].length === trainingDays &&
+                !serverPlan.some(week =>
+                    week.some(day =>
+                        day.some(ex => difficultyRank[ex.difficulty] > userRank)
+                    )
+                )
+
+            if (validServerPlan && isActive) {
+                setPlans(serverPlan!)  // trust server
+                setLoading(false)
+                return
+            }
+
+            // 2) Generate fresh template
+            const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
+            const fresh = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
             if (isActive) setPlans(fresh)
 
-            await AsyncStorage.setItem(
-                `workoutPlan:${user.username}`,
-                JSON.stringify(fresh)
-            )
-            // overwrite server record
+            // Persist new plan locally & remotely
+            AsyncStorage.setItem(key, JSON.stringify(fresh)).catch(() => { })
             fetch(`${BACKEND}/saveWorkoutPlan`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: user.username, plan: fresh }),
-            }).catch(e => console.warn('Save fresh plan failed', e))
+            }).catch(() => { })
 
             setLoading(false)
         }
 
         loadPlan()
-        return () => {
-            isActive = false
-        }
-    }, [user?.username, sex, objective, trainingDays])
+        return () => { isActive = false }
+    }, [user?.username, sex, objective, trainingDays, experience])
 
-
-    // Swap handler: only replace the selected instance
+    // Swap handler: replace only selected instance
     const doSwap = async (newEx: ExercisePlanItem) => {
         if (!user?.username || !selectedPosition) return
         const { day, index } = selectedPosition
         const updated = plans.map((week, wIdx) =>
-            wIdx === weekIndex
-                ? week.map((dayExs, dIdx) =>
-                    dIdx === day
-                        ? dayExs.map((ex, exIdx) =>
-                            exIdx === index
-                                ? { ...newEx, sets: ex.sets, reps: ex.reps, weight: ex.weight }
-                                : ex
-                        )
-                        : dayExs
-                )
-                : week
+            wIdx === weekIndex ?
+                week.map((dayExs, dIdx) =>
+                    dIdx === day ?
+                        dayExs.map((ex, exIdx) =>
+                            exIdx === index ? { ...newEx, sets: ex.sets, reps: ex.reps, weight: ex.weight } : ex
+                        ) : dayExs
+                ) : week
         )
         setPlans(updated)
         setSwapModalVisible(false)
-
         const key = `workoutPlan:${user.username}`
-        AsyncStorage.setItem(key, JSON.stringify(updated)).catch()
+        AsyncStorage.setItem(key, JSON.stringify(updated)).catch(() => { })
         fetch(`${BACKEND}/saveWorkoutPlan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: user.username, plan: updated }),
-        }).catch(e => console.error('Swap save failed:', e))
+        }).catch(() => { })
     }
 
-    // Capture both exercise and its position on long press
+    // Capture position and filter swaps by allowed difficulties
     const onExerciseLongPress = async (ex: ExercisePlanItem, dayIdx: number, exIdx: number) => {
         setSelectedExercise(ex)
         setSelectedPosition({ day: dayIdx, index: exIdx })
@@ -155,7 +157,11 @@ export default function WorkoutScreen() {
                 `${BACKEND}/getExercisesByPrimaryMuscle?muscles=${encodeURIComponent(ex.primary_muscle_group)}`
             )
             const list = (await res.json()) as ExercisePlanItem[]
-            setSwapList(list.filter(e => e.difficulty === ex.difficulty && e.name !== ex.name))
+            const userRank = difficultyRank[experience as keyof typeof difficultyRank]
+            const filtered = list.filter(e =>
+                difficultyRank[e.difficulty] <= userRank && e.name !== ex.name
+            )
+            setSwapList(filtered)
         } catch {
             setSwapList([])
         }
@@ -170,7 +176,7 @@ export default function WorkoutScreen() {
         )
     }
 
-    // Pagination and rendering
+    // Render with pagination
     const atStart = weekIndex === 0
     const atEnd = weekIndex === TOTAL_WEEKS - 1
     const month = Math.floor(weekIndex / 4) + 1
@@ -181,17 +187,15 @@ export default function WorkoutScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.weekNav}>
-                <TouchableOpacity disabled={atStart} onPress={() => !atStart && setWeekIndex(weekIndex - 1)}>
+                <TouchableOpacity disabled={atStart} onPress={() => setWeekIndex(idx => Math.max(0, idx - 1))}>
                     <Text style={[styles.arrow, atStart && styles.arrowDisabled]}>‹</Text>
                 </TouchableOpacity>
                 <Text style={styles.weekLabel}>Month {month} Week {weekOfMon}</Text>
-                <TouchableOpacity disabled={atEnd} onPress={() => !atEnd && setWeekIndex(weekIndex + 1)}>
+                <TouchableOpacity disabled={atEnd} onPress={() => setWeekIndex(idx => Math.min(TOTAL_WEEKS - 1, idx + 1))}>
                     <Text style={[styles.arrow, atEnd && styles.arrowDisabled]}>›</Text>
                 </TouchableOpacity>
             </View>
-
             <Text style={styles.header}>{trainingDays}-Day Split — {user?.username}</Text>
-
             <FlatList
                 data={dayTemplates}
                 keyExtractor={(_, i) => i.toString()}
