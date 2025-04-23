@@ -158,4 +158,45 @@ app.get('/getExercisesByPrimaryMuscle', async (req, res) => {
     }
 });
 
+// FETCH a saved plan
+app.get('/getWorkoutPlan', async (req, res) => {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ error: 'username is required' });
+    try {
+        const result = await pool.query(
+            'SELECT plan FROM workout_plans WHERE username = $1',
+            [username]
+        );
+        if (result.rows.length === 0) {
+            return res.json({ plan: null });
+        }
+        res.json({ plan: result.rows[0].plan });
+    } catch (err) {
+        console.error('Error fetching workout plan:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// SAVE (or update) a plan
+app.post('/saveWorkoutPlan', async (req, res) => {
+    const { username, plan } = req.body;
+    if (!username || !plan) {
+        return res.status(400).json({ error: 'username and plan are required' });
+    }
+    try {
+        await pool.query(
+            `INSERT INTO workout_plans (username, plan)
+   VALUES ($1, $2::jsonb)
+   ON CONFLICT (username)
+   DO UPDATE SET plan = EXCLUDED.plan, updated_at = NOW();`,
+            [username, JSON.stringify(plan)]
+        );
+
+        res.json({ message: 'Workout plan saved' });
+    } catch (err) {
+        console.error('Error saving workout plan:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 app.listen(port, () => console.log('Server running on http://10.0.2.2:3000'));

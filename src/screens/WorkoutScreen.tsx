@@ -1,23 +1,10 @@
-// src/screens/WorkoutScreen.tsx
 import React, { useCallback, useContext, useEffect, useState } from 'react'
-import {
-    View,
-    Text,
-    FlatList,
-    StyleSheet,
-    ActivityIndicator,
-    TouchableOpacity,
-    Modal,
-    Pressable,
-} from 'react-native'
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Pressable } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect } from '@react-navigation/native'
 import { WorkoutContext } from '../context/WorkoutContext'
 import { UserContext } from '../context/UserContext'
-import {
-    PlanTemplates,
-    ExercisePlanItem,
-} from '../components/WorkoutTemplates'
+import { PlanTemplates, ExercisePlanItem } from '../components/WorkoutTemplates'
 
 type SplitDay = { name: string }
 const splitKeysByDays: Record<number, SplitDay[]> = {
@@ -29,10 +16,11 @@ const splitKeysByDays: Record<number, SplitDay[]> = {
     7: [{ name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }, { name: 'Arms & Shoulders' }, { name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }],
 }
 
-const TOTAL_WEEKS = 12  // 3 months × 4 weeks
+const TOTAL_WEEKS = 12 // 3 months × 4 weeks
+const BACKEND = 'http://10.0.2.2:3000'
 
 export default function WorkoutScreen() {
-    const { sex, objective, trainingDays, experience, reload } = useContext(WorkoutContext)
+    const { sex, objective, trainingDays, reload } = useContext(WorkoutContext)
     const { user } = useContext(UserContext)
 
     const [plans, setPlans] = useState<ExercisePlanItem[][][]>([])
@@ -43,84 +31,112 @@ export default function WorkoutScreen() {
     const [descModalVisible, setDescModalVisible] = useState(false)
     const [swapModalVisible, setSwapModalVisible] = useState(false)
     const [selectedExercise, setSelectedExercise] = useState<ExercisePlanItem | null>(null)
+    const [selectedPosition, setSelectedPosition] = useState<{ day: number; index: number } | null>(null)
     const [swapList, setSwapList] = useState<ExercisePlanItem[]>([])
 
-    // reload trainingDays etc
+    // Reload metrics whenever screen focuses
     useFocusEffect(
         useCallback(() => {
             reload()
         }, [reload])
     )
 
-    // on sex/objective/trainingDays change, load from AsyncStorage or build new
+    // Fetch always from server, fallback to template
     useEffect(() => {
+        let isActive = true
         async function loadPlan() {
+            setLoading(true)
             if (!user?.username || !sex || !objective || !trainingDays) {
                 setPlans([])
                 setLoading(false)
                 return
             }
-            setLoading(true)
 
             const key = `workoutPlan:${user.username}`
-            const saved = await AsyncStorage.getItem(key)
-            if (saved) {
-                // parse and use it
-                setPlans(JSON.parse(saved))
-                setLoading(false)
-                return
+            try {
+                const res = await fetch(
+                    `${BACKEND}/getWorkoutPlan?username=${encodeURIComponent(user.username)}`
+                )
+                const contentType = res.headers.get('content-type') || ''
+                if (res.ok && contentType.includes('application/json')) {
+                    const json = await res.json()
+                    if (isActive) {
+                        if (json.plan) {
+                            setPlans(json.plan)
+                        } else {
+                            const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
+                            const all = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
+                            setPlans(all)
+                            // persist new template
+                            fetch(`${BACKEND}/saveWorkoutPlan`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ username: user.username, plan: all }),
+                            }).catch()
+                            AsyncStorage.setItem(key, JSON.stringify(all)).catch()
+                        }
+                        setLoading(false)
+                        return
+                    }
+                } else {
+                    const text = await res.text()
+                    console.warn(`getWorkoutPlan returned status ${res.status}: ${text}`)
+                }
+            } catch (e) {
+                console.warn('Server fetch failed, loading template.', e)
             }
 
-            // no saved plan → generate template
-            const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays]
-                ?? splitKeysByDays[trainingDays].map(() => [])
-            // deep clone into 12 weeks
-            const all = Array(TOTAL_WEEKS)
-                .fill(0)
-                .map(() => tpl.map(day => day.map(ex => ({ ...ex }))))
-
-            setPlans(all)
-            // persist it immediately
-            await AsyncStorage.setItem(key, JSON.stringify(all))
-            setLoading(false)
+            if (isActive) {
+                const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
+                const all = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
+                setPlans(all)
+                setLoading(false)
+            }
         }
 
         loadPlan()
+        return () => { isActive = false }
     }, [user?.username, sex, objective, trainingDays])
 
-    // handle a swap and persist
+    // Swap handler: only replace the selected instance
     const doSwap = async (newEx: ExercisePlanItem) => {
-        if (!user?.username || !selectedExercise) return
+        if (!user?.username || !selectedPosition) return
+        const { day, index } = selectedPosition
         const updated = plans.map((week, wIdx) =>
-            wIdx !== weekIndex
-                ? week
-                : week.map(dayExercises =>
-                    dayExercises.map(ex =>
-                        ex.name === selectedExercise.name
-                            ? { ...newEx, sets: ex.sets, reps: ex.reps, weight: ex.weight }
-                            : ex
-                    )
+            wIdx === weekIndex
+                ? week.map((dayExs, dIdx) =>
+                    dIdx === day
+                        ? dayExs.map((ex, exIdx) =>
+                            exIdx === index
+                                ? { ...newEx, sets: ex.sets, reps: ex.reps, weight: ex.weight }
+                                : ex
+                        )
+                        : dayExs
                 )
+                : week
         )
         setPlans(updated)
         setSwapModalVisible(false)
-        // persist new plan
-        await AsyncStorage.setItem(
-            `workoutPlan:${user.username}`,
-            JSON.stringify(updated)
-        )
+
+        const key = `workoutPlan:${user.username}`
+        AsyncStorage.setItem(key, JSON.stringify(updated)).catch()
+        fetch(`${BACKEND}/saveWorkoutPlan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user.username, plan: updated }),
+        }).catch(e => console.error('Swap save failed:', e))
     }
 
-    const onExerciseLongPress = async (ex: ExercisePlanItem) => {
+    // Capture both exercise and its position on long press
+    const onExerciseLongPress = async (ex: ExercisePlanItem, dayIdx: number, exIdx: number) => {
         setSelectedExercise(ex)
-        // fetch swap candidates...
+        setSelectedPosition({ day: dayIdx, index: exIdx })
         try {
             const res = await fetch(
-                `http://10.0.2.2:3000/getExercisesByPrimaryMuscle?muscles=${encodeURIComponent(ex.primary_muscle_group)}`
+                `${BACKEND}/getExercisesByPrimaryMuscle?muscles=${encodeURIComponent(ex.primary_muscle_group)}`
             )
-            let all = (await res.json()) as ExercisePlanItem[]
-            all = all.filter(e => e.difficulty === ex.difficulty && e.name !== ex.name)
-            setSwapList(all)
+            const list = (await res.json()) as ExercisePlanItem[]
+            setSwapList(list.filter(e => e.difficulty === ex.difficulty && e.name !== ex.name))
         } catch {
             setSwapList([])
         }
@@ -130,24 +146,21 @@ export default function WorkoutScreen() {
     if (loading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" />
             </View>
         )
     }
 
-    // nav bounds
+    // Pagination and rendering
     const atStart = weekIndex === 0
     const atEnd = weekIndex === TOTAL_WEEKS - 1
-    // month/week calculations
     const month = Math.floor(weekIndex / 4) + 1
     const weekOfMon = (weekIndex % 4) + 1
-
     const dayTemplates = splitKeysByDays[trainingDays!] || []
     const currentPlan = plans[weekIndex] || dayTemplates.map(() => [])
 
     return (
         <View style={styles.container}>
-            {/* ← Month/Week picker → */}
             <View style={styles.weekNav}>
                 <TouchableOpacity disabled={atStart} onPress={() => !atStart && setWeekIndex(weekIndex - 1)}>
                     <Text style={[styles.arrow, atStart && styles.arrowDisabled]}>‹</Text>
@@ -158,27 +171,23 @@ export default function WorkoutScreen() {
                 </TouchableOpacity>
             </View>
 
-            <Text style={styles.header}>
-                {trainingDays}‑Day Split — {user?.username}
-            </Text>
+            <Text style={styles.header}>{trainingDays}-Day Split — {user?.username}</Text>
 
             <FlatList
                 data={dayTemplates}
                 keyExtractor={(_, i) => i.toString()}
-                renderItem={({ item, index }) => (
+                renderItem={({ item, index: dayIdx }) => (
                     <View style={styles.dayBox}>
-                        <Text style={styles.dayLabel}>Day {index + 1}: {item.name}</Text>
-                        {currentPlan[index]?.map(ex => (
+                        <Text style={styles.dayLabel}>Day {dayIdx + 1}: {item.name}</Text>
+                        {currentPlan[dayIdx]?.map((ex, exIdx) => (
                             <TouchableOpacity
-                                key={ex.name}
-                                onPress={() => { setSelectedExercise(ex); setDescModalVisible(true) }}
-                                onLongPress={() => onExerciseLongPress(ex)}
+                                key={`${dayIdx}-${exIdx}`}
+                                onPress={() => { setSelectedExercise(ex); setSelectedPosition({ day: dayIdx, index: exIdx }); setDescModalVisible(true) }}
+                                onLongPress={() => onExerciseLongPress(ex, dayIdx, exIdx)}
                                 style={styles.exItem}
                             >
                                 <Text style={styles.exName}>{ex.name}</Text>
-                                <Text style={styles.exDetails}>
-                                    {ex.sets}×{ex.reps} @ {ex.weight}
-                                </Text>
+                                <Text style={styles.exDetails}>{ex.sets}×{ex.reps} @ {ex.weight}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -192,9 +201,7 @@ export default function WorkoutScreen() {
                         <Text style={styles.modalTitle}>{selectedExercise?.name}</Text>
                         <Text>Equip: {selectedExercise?.equipment}</Text>
                         <Text>Primary: {selectedExercise?.primary_muscle_group}</Text>
-                        {selectedExercise?.secondary_muscle_group && (
-                            <Text>Secondary: {selectedExercise.secondary_muscle_group}</Text>
-                        )}
+                        {selectedExercise?.secondary_muscle_group && (<Text>Secondary: {selectedExercise.secondary_muscle_group}</Text>)}
                         <Pressable onPress={() => setDescModalVisible(false)} style={styles.closeBtn}>
                             <Text style={styles.closeText}>Close</Text>
                         </Pressable>
@@ -209,7 +216,7 @@ export default function WorkoutScreen() {
                         <Text style={styles.modalTitle}>Swap “{selectedExercise?.name}” for:</Text>
                         <FlatList
                             data={swapList}
-                            keyExtractor={e => e.name}
+                            keyExtractor={(e, idx) => `${e.name}-${idx}`}
                             renderItem={({ item }) => (
                                 <Pressable onPress={() => doSwap(item)} style={styles.swapOption}>
                                     <Text>{item.name}</Text>
@@ -230,7 +237,7 @@ const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     container: { flex: 1, padding: 16, backgroundColor: '#fff' },
     weekNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    arrow: { fontSize: 28, color: '#007AFF', width: 32, textAlign: 'center' },
+    arrow: { fontSize: 28, width: 32, textAlign: 'center' },
     arrowDisabled: { color: '#ccc' },
     weekLabel: { fontSize: 16, fontWeight: '600' },
     header: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
@@ -238,11 +245,11 @@ const styles = StyleSheet.create({
     dayLabel: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
     exItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
     exName: { fontSize: 16, flex: 1 },
-    exDetails: { fontSize: 14, color: '#555', textAlign: 'right' },
+    exDetails: { fontSize: 14, textAlign: 'right' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
     modalBox: { margin: 20, backgroundColor: 'white', borderRadius: 8, padding: 16 },
     modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
     swapOption: { padding: 12, borderBottomWidth: 1, borderColor: '#eee' },
-    closeBtn: { marginTop: 12, backgroundColor: '#ddd', padding: 10, borderRadius: 5, alignItems: 'center' },
+    closeBtn: { marginTop: 12, padding: 10, borderRadius: 5, alignItems: 'center', backgroundColor: '#ddd' },
     closeText: { fontSize: 16 },
 })
