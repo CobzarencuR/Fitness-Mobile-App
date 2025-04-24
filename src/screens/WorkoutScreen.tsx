@@ -16,6 +16,7 @@ import { UserContext } from '../context/UserContext'
 import {
     PlanTemplates,
     ExercisePlanItem,
+    PersonType,
 } from '../components/WorkoutTemplates'
 
 type SplitDay = { name: string }
@@ -38,7 +39,7 @@ const difficultyRank: Record<'beginner' | 'intermediate' | 'advanced', number> =
 }
 
 export default function WorkoutScreen() {
-    const { sex, objective, trainingDays, experience, reload } = useContext(WorkoutContext)
+    const { height, weight, sex, objective, trainingDays, experience, reload } = useContext(WorkoutContext)
     const { user } = useContext(UserContext)
 
     const [plans, setPlans] = useState<ExercisePlanItem[][][]>([])
@@ -59,9 +60,23 @@ export default function WorkoutScreen() {
         }, [reload])
     )
 
+    // Create the person type based on height and weight
+    let personType = React.useMemo<'underweight' | 'normal' | 'overweight'>(() => {
+        if (height != null && weight != null) {
+            if ((height <= 160 && weight >= 80) || (height <= 170 && weight >= 90)) {
+                return 'overweight'
+            }
+            if ((height >= 180 && weight <= 60) || (height >= 190 && weight <= 65)) {
+                return 'underweight'
+            }
+        }
+        return 'normal'
+    }, [height, weight])
+
     // Fetch always from server or regenerate on split/experience mismatch
     useEffect(() => {
         let isActive = true
+
         async function loadPlan() {
             setLoading(true)
             if (!user?.username || !sex || !objective || !trainingDays || !experience) {
@@ -105,7 +120,7 @@ export default function WorkoutScreen() {
             }
 
             // 2) Generate fresh template
-            const tpl = PlanTemplates[objective]?.[sex]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
+            const tpl = PlanTemplates[objective]?.[experience]?.[personType]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
             const fresh = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
             if (isActive) setPlans(fresh)
 
@@ -122,7 +137,7 @@ export default function WorkoutScreen() {
 
         loadPlan()
         return () => { isActive = false }
-    }, [user?.username, sex, objective, trainingDays, experience])
+    }, [user?.username, sex, objective, trainingDays, experience, personType])
 
     // Swap handler: replace only selected instance
     const doSwap = async (newEx: ExercisePlanItem) => {
@@ -222,7 +237,7 @@ export default function WorkoutScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalBox}>
                         <Text style={styles.modalTitle}>{selectedExercise?.name}</Text>
-                        <Text>Equip: {selectedExercise?.equipment}</Text>
+                        <Text>Equipment: {selectedExercise?.equipment}</Text>
                         <Text>Primary: {selectedExercise?.primary_muscle_group}</Text>
                         {selectedExercise?.secondary_muscle_group && (<Text>Secondary: {selectedExercise.secondary_muscle_group}</Text>)}
                         {selectedExercise?.tertiary_muscle_group && (<Text>Tertiary: {selectedExercise.tertiary_muscle_group}</Text>)}
