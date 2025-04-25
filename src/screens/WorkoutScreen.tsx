@@ -120,7 +120,7 @@ export default function WorkoutScreen() {
             }
 
             // 2) Generate fresh template
-            const tpl = PlanTemplates[objective]?.[experience]?.[personType]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
+            const tpl = PlanTemplates[experience]?.[personType]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
             const fresh = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
             if (isActive) setPlans(fresh)
 
