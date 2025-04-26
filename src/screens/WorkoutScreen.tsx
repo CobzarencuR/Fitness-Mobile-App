@@ -1,23 +1,10 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react'
-import {
-    View,
-    Text,
-    FlatList,
-    StyleSheet,
-    ActivityIndicator,
-    TouchableOpacity,
-    Modal,
-    Pressable,
-} from 'react-native'
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Pressable } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect } from '@react-navigation/native'
 import { WorkoutContext } from '../context/WorkoutContext'
 import { UserContext } from '../context/UserContext'
-import {
-    PlanTemplates,
-    ExercisePlanItem,
-    PersonType,
-} from '../components/WorkoutTemplates'
+import { PlanTemplates, ExercisePlanItem, PersonType } from '../components/WorkoutTemplates'
 
 type SplitDay = { name: string }
 const splitKeysByDays: Record<number, SplitDay[]> = {
@@ -73,6 +60,21 @@ export default function WorkoutScreen() {
         return 'normal'
     }, [height, weight])
 
+    //Bumps every exercise’s reps by +monthOffset.
+    //monthOffset = 0 for weeks 0–4, 1 for weeks 5–8, 2 for weeks 9–12.
+    function applyMonthlyProgression(
+        template: ExercisePlanItem[][],
+        weekIndex: number
+    ): ExercisePlanItem[][] {
+        const monthOffset = Math.floor(weekIndex / 4)
+        return template.map(day =>
+            day.map(ex => ({
+                ...ex,
+                reps: ex.reps + monthOffset,
+            }))
+        )
+    }
+
     // Fetch always from server or regenerate on split/experience mismatch
     useEffect(() => {
         let isActive = true
@@ -114,14 +116,23 @@ export default function WorkoutScreen() {
                 )
 
             if (validServerPlan && isActive) {
-                setPlans(serverPlan!)  // trust server
+                // apply progression to each week slice before setting
+                const progressed = serverPlan!.map((week, idx) =>
+                    applyMonthlyProgression(week, idx)
+                )
+                setPlans(progressed)
                 setLoading(false)
                 return
             }
 
             // 2) Generate fresh template
             const tpl = PlanTemplates[experience]?.[personType]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
-            const fresh = Array.from({ length: TOTAL_WEEKS }, () => tpl.map(day => day.map(ex => ({ ...ex }))))
+            const fresh = Array.from({ length: TOTAL_WEEKS }, (_, weekIdx) =>
+                applyMonthlyProgression(
+                    tpl.map(day => day.map(ex => ({ ...ex }))),
+                    weekIdx
+                )
+            )
             if (isActive) setPlans(fresh)
 
             // Persist new plan locally & remotely
