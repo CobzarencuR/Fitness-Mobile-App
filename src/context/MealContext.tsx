@@ -1,5 +1,4 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import SQLite from 'react-native-sqlite-storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Food = {
@@ -23,296 +22,209 @@ export type Meal = {
 
 type MealContextType = {
     meals: Meal[];
-    loadMeals: (selectedDate?: string) => void;
-    addMeal: (userId: number, date?: string) => void;
-    addFoodToMeal: (mealId: number, food: Food) => void;
-    updateFoodInMeal: (mealId: number, updatedFood: Food) => void;
-    deleteMeal: (mealId: number) => void;
-    removeFoodFromMeal: (mealId: number, foodId: number) => void;
-    moveFoodToMeal: (sourceMealId: number, destinationMealId: number, food: Food) => void;
+    loadMeals: (selectedDate?: string) => Promise<void>;
+    addMeal: (date?: string) => Promise<void>;
+    addFoodToMeal: (mealId: number, food: Food) => Promise<void>;
+    updateFoodInMeal: (mealId: number, updatedFood: Food) => Promise<void>;
+    deleteMeal: (mealId: number) => Promise<void>;
+    removeFoodFromMeal: (mealId: number, foodId: number) => Promise<void>;
+    moveFoodToMeal: (sourceMealId: number, destinationMealId: number, food: Food) => Promise<void>;
 };
 
 export const MealContext = createContext<MealContextType>({
     meals: [],
-    loadMeals: () => { },
-    addMeal: () => { },
-    addFoodToMeal: () => { },
-    updateFoodInMeal: () => { },
-    deleteMeal: () => { },
-    removeFoodFromMeal: () => { },
-    moveFoodToMeal: () => { },
+    loadMeals: async () => { },
+    addMeal: async () => { },
+    addFoodToMeal: async () => { },
+    updateFoodInMeal: async () => { },
+    deleteMeal: async () => { },
+    removeFoodFromMeal: async () => { },
+    moveFoodToMeal: async () => { },
 });
 
-type Props = {
-    children: ReactNode;
-};
-
-const db = SQLite.openDatabase(
-    { name: 'fitnessApp.db', location: 'default' },
-    () => {
-        console.log('MealProvider: Database opened successfully');
-        // Enable foreign keys (if using cascade deletes)
-        db.executeSql('PRAGMA foreign_keys = ON;');
-    },
-    (error) => console.log('MealProvider: Error opening database:', error)
-);
+type Props = { children: ReactNode };
 
 export const MealProvider = ({ children }: Props) => {
     const [meals, setMeals] = useState<Meal[]>([]);
+    const BACKEND = 'http://10.0.2.2:3000';
 
-    // loadMeals: Load meals for the current user and for the given date.
     const loadMeals = async (selectedDate?: string) => {
-        const storedUserId = await AsyncStorage.getItem('loggedInUserId');
-        if (!storedUserId) {
+        const storedUsername = await AsyncStorage.getItem('loggedInUsername');
+        if (!storedUsername) {
             setMeals([]);
             return;
         }
-        const userId = parseInt(storedUserId, 10);
         const dateToLoad = selectedDate || new Date().toISOString().split('T')[0];
-        db.transaction((tx) => {
-            tx.executeSql(
-                'SELECT * FROM meals WHERE user_id = ? AND date = ?;',
-                [userId, dateToLoad],
-                (tx, results) => {
-                    const rows = results.rows;
-                    let loadedMeals: Meal[] = [];
-                    for (let i = 0; i < rows.length; i++) {
-                        const item = rows.item(i);
-                        loadedMeals.push({
-                            id: item.mealId,
-                            userId: item.user_id,
-                            title: item.name,
-                            date: item.date,
-                            foods: [],
-                        });
-                    }
-                    // For each meal, load its foods.
-                    loadedMeals.forEach((meal, index) => {
-                        tx.executeSql(
-                            'SELECT * FROM foods WHERE mealId = ?;',
-                            [meal.id],
-                            (tx, res) => {
-                                let foods: Food[] = [];
-                                for (let j = 0; j < res.rows.length; j++) {
-                                    const foodRow = res.rows.item(j);
-                                    foods.push({
-                                        id: foodRow.foodId,
-                                        foodname: foodRow.foodName,
-                                        grams: foodRow.grams,
-                                        category: foodRow.category,
-                                        calories: foodRow.calories,
-                                        protein: foodRow.protein,
-                                        carbs: foodRow.carbs,
-                                        fats: foodRow.fats,
-                                    });
-                                }
-                                loadedMeals[index].foods = foods;
-                                if (index === loadedMeals.length - 1) {
-                                    setMeals(loadedMeals);
-                                }
-                            },
-                            (tx, error) => console.error('Error fetching foods for meal', meal.id, error)
-                        );
-                    });
-                    if (loadedMeals.length === 0) {
-                        setMeals([]);
-                    }
-                },
-                (tx, error) => {
-                    console.error('Error loading meals:', error);
-                }
+
+        try {
+            const res = await fetch(
+                `${BACKEND}/getUserMeals?username=${encodeURIComponent(storedUsername)}&date=${dateToLoad}`
             );
-        });
+            if (!res.ok) throw new Error('Failed to fetch meals');
+            const data = await res.json();
+            const transformed = data.map((m: any) => ({
+                id: m.mealid,
+                userId: m.user_id,
+                title: m.name,
+                date: m.date,
+                foods: m.foods.map((f: any) => ({
+                    id: f.foodid,
+                    category: f.category,
+                    foodname: f.foodname,
+                    grams: f.grams,
+                    calories: f.calories,
+                    protein: f.protein,
+                    carbs: f.carbs,
+                    fats: f.fats,
+                })),
+            }));
+            setMeals(transformed);
+        } catch (error) {
+            console.error('Error loading meals:', error);
+        }
+    };
+
+    // after: server does the naming
+    const addMeal = async (date?: string) => {
+        const currentDate = date || new Date().toISOString().split('T')[0];
+        const username = await AsyncStorage.getItem('loggedInUsername');
+        console.log('[addMeal] username:', username, 'date:', currentDate);
+
+        try {
+            const res = await fetch(`${BACKEND}/addMeal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, date: currentDate }),
+            });
+            console.log('[addMeal] response status:', res.status);
+            const text = await res.text();
+            console.log('[addMeal] response body:', text);
+
+            if (!res.ok) throw new Error(`Failed to add meal (status ${res.status})`);
+            const newMeal = JSON.parse(text);
+            setMeals(prev => [
+                ...prev,
+                {
+                    id: newMeal.mealid,
+                    userId: newMeal.user_id,
+                    title: newMeal.name,    // server computed the right "Meal N"
+                    date: newMeal.date,
+                    foods: [],
+                },
+            ]);
+        } catch (err) {
+            console.error('Error adding meal:', err);
+        }
+    };
+
+
+    const deleteMeal = async (mealId: number) => {
+        try {
+            const res = await fetch(`${BACKEND}/deleteMeal?mealid=${mealId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to delete meal');
+            // now re-load from the server (which has renumbered)
+            await loadMeals();
+        } catch (error) {
+            console.error('Error deleting meal:', error);
+        }
+    };
+
+    const addFoodToMeal = async (mealId: number, food: Food) => {
+        try {
+            const res = await fetch(`${BACKEND}/addFood`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mealid: mealId,
+                    foodname: food.foodname,
+                    grams: food.grams,
+                    category: food.category,
+                    calories: food.calories,
+                    protein: food.protein,
+                    carbs: food.carbs,
+                    fats: food.fats,
+                }),
+            });
+            if (!res.ok) throw new Error('Failed to add food');
+            const added = await res.json();
+            setMeals(prev => prev.map(m =>
+                m.id === mealId
+                    ? { ...m, foods: [...m.foods, { ...food, id: added.foodid }] }
+                    : m
+            ));
+        } catch (error) {
+            console.error('Error adding food:', error);
+        }
+    };
+
+    const updateFoodInMeal = async (mealId: number, updatedFood: Food) => {
+        try {
+            const res = await fetch(`${BACKEND}/updateFood`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    foodid: updatedFood.id,
+                    foodname: updatedFood.foodname,
+                    grams: updatedFood.grams,
+                    category: updatedFood.category,
+                    calories: updatedFood.calories,
+                    protein: updatedFood.protein,
+                    carbs: updatedFood.carbs,
+                    fats: updatedFood.fats,
+                }),
+            });
+            if (!res.ok) throw new Error('Failed to update food');
+            await res.json();
+            setMeals(prev => prev.map(m =>
+                m.id === mealId
+                    ? { ...m, foods: m.foods.map(f => f.id === updatedFood.id ? updatedFood : f) }
+                    : m
+            ));
+        } catch (error) {
+            console.error('Error updating food:', error);
+        }
+    };
+
+    const removeFoodFromMeal = async (mealId: number, foodId: number) => {
+        try {
+            const res = await fetch(`${BACKEND}/deleteFood?foodid=${foodId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to delete food');
+            setMeals(prev => prev.map(m =>
+                m.id === mealId
+                    ? { ...m, foods: m.foods.filter(f => f.id !== foodId) }
+                    : m
+            ));
+        } catch (error) {
+            console.error('Error deleting food:', error);
+        }
+    };
+
+    const moveFoodToMeal = async (sourceMealId: number, destinationMealId: number, food: Food) => {
+        try {
+            const res = await fetch(`${BACKEND}/moveFood`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ foodid: food.id, destinationMealId }),
+            });
+            if (!res.ok) throw new Error('Failed to move food');
+            await res.json();
+            setMeals(prev => prev.map(m => {
+                if (m.id === sourceMealId) {
+                    return { ...m, foods: m.foods.filter(f => f.id !== food.id) };
+                }
+                if (m.id === destinationMealId) {
+                    return { ...m, foods: [...m.foods, food] };
+                }
+                return m;
+            }));
+        } catch (error) {
+            console.error('Error moving food:', error);
+        }
     };
 
     useEffect(() => {
-        loadMeals(); // Load meals for today by default on mount.
+        loadMeals();
     }, []);
-
-    const addMeal = (userId: number, date?: string) => {
-        const currentDate = date || new Date().toISOString().split('T')[0];
-        // Count meals for this user on the selected date.
-        const currentMealsForUser = meals.filter((meal) => meal.userId === userId && meal.date === currentDate);
-        const newTitle = `Meal ${currentMealsForUser.length + 1}`;
-        db.transaction((tx) => {
-            tx.executeSql(
-                'INSERT INTO meals (user_id, name, date) VALUES (?, ?, ?);',
-                [userId, newTitle, currentDate],
-                (tx, results) => {
-                    const insertedId = results.insertId;
-                    const newMeal: Meal = {
-                        id: insertedId,
-                        userId,
-                        title: newTitle,
-                        date: currentDate,
-                        foods: [],
-                    };
-                    setMeals((prevMeals) => [...prevMeals, newMeal]);
-                    console.log('Meal added with id:', insertedId);
-                },
-                (tx, error) => {
-                    console.error('Error adding meal:', error);
-                }
-            );
-        });
-    };
-
-    const addFoodToMeal = (mealId: number, food: Food) => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                `INSERT INTO foods (mealId, foodName, grams, category, calories, protein, carbs, fats)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-                [
-                    mealId,
-                    food.foodname,
-                    food.grams,
-                    food.category,
-                    food.calories,
-                    food.protein,
-                    food.carbs,
-                    food.fats,
-                ],
-                (tx, results) => {
-                    const insertedId = results.insertId;
-                    const newFood: Food = { ...food, id: insertedId };
-                    setMeals((prevMeals) =>
-                        prevMeals.map((meal) =>
-                            meal.id === mealId ? { ...meal, foods: [...meal.foods, newFood] } : meal
-                        )
-                    );
-                    console.log(`Food added to meal ${mealId} with id:`, insertedId);
-                },
-                (tx, error) => {
-                    console.error('Error adding food:', error);
-                }
-            );
-        });
-    };
-
-    const updateFoodInMeal = (mealId: number, updatedFood: Food) => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                `UPDATE foods 
-         SET foodName = ?, grams = ?, calories = ?, protein = ?, carbs = ?, fats = ?
-         WHERE foodId = ?;`,
-                [
-                    updatedFood.foodname,
-                    updatedFood.grams,
-                    updatedFood.calories,
-                    updatedFood.protein,
-                    updatedFood.carbs,
-                    updatedFood.fats,
-                    updatedFood.id,
-                ],
-                (tx, results) => {
-                    console.log(`Updated food ${updatedFood.id} in meal ${mealId}`);
-                    setMeals((prevMeals) =>
-                        prevMeals.map((meal) => {
-                            if (meal.id === mealId) {
-                                const newFoods = meal.foods.map((f) =>
-                                    f.id === updatedFood.id ? updatedFood : f
-                                );
-                                return { ...meal, foods: newFoods };
-                            }
-                            return meal;
-                        })
-                    );
-                },
-                (tx, error) => {
-                    console.error('Error updating food:', error);
-                }
-            );
-        });
-    };
-
-    const deleteMeal = (mealId: number) => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                'DELETE FROM meals WHERE mealId = ?;',
-                [mealId],
-                (tx, results) => {
-                    console.log(`Deleted meal ${mealId} from SQLite`);
-                    AsyncStorage.getItem('loggedInUserId').then((storedUserId) => {
-                        if (storedUserId) {
-                            const userId = parseInt(storedUserId, 10);
-                            setMeals((prevMeals) => {
-                                const filteredMeals = prevMeals.filter((meal) => meal.id !== mealId);
-                                // Reassign titles for meals belonging to this user for the selected date.
-                                const userMeals = filteredMeals.filter((meal) => meal.userId === userId);
-                                const updatedUserMeals = userMeals.map((meal, index) => ({
-                                    ...meal,
-                                    title: `Meal ${index + 1}`,
-                                }));
-                                updatedUserMeals.forEach((meal) => {
-                                    db.transaction((tx2) => {
-                                        tx2.executeSql(
-                                            'UPDATE meals SET name = ? WHERE mealId = ?;',
-                                            [meal.title, meal.id],
-                                            () => console.log(`Updated meal ${meal.id} title to ${meal.title}`),
-                                            (tx2, error) => console.error(`Error updating meal ${meal.id} title:`, error)
-                                        );
-                                    });
-                                });
-                                const otherMeals = filteredMeals.filter((meal) => meal.userId !== userId);
-                                return [...otherMeals, ...updatedUserMeals];
-                            });
-                        }
-                    });
-                },
-                (tx, error) => {
-                    console.error('Error deleting meal:', error);
-                }
-            );
-        });
-    };
-
-    const removeFoodFromMeal = (mealId: number, foodId: number) => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                'DELETE FROM foods WHERE foodId = ?;',
-                [foodId],
-                (tx, results) => {
-                    console.log(`Deleted food ${foodId} from SQLite`);
-                    setMeals((prevMeals) =>
-                        prevMeals.map((meal) =>
-                            meal.id === mealId
-                                ? { ...meal, foods: meal.foods.filter((food) => food.id !== foodId) }
-                                : meal
-                        )
-                    );
-                },
-                (tx, error) => {
-                    console.error('Error deleting food:', error);
-                }
-            );
-        });
-    };
-
-    const moveFoodToMeal = (sourceMealId: number, destinationMealId: number, food: Food) => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                'UPDATE foods SET mealId = ? WHERE foodId = ?;',
-                [destinationMealId, food.id],
-                (tx, results) => {
-                    console.log(`Moved food ${food.id} from meal ${sourceMealId} to ${destinationMealId} in SQLite`);
-                    setMeals((prevMeals) =>
-                        prevMeals.map((meal) => {
-                            if (meal.id === sourceMealId) {
-                                return { ...meal, foods: meal.foods.filter((f) => f.id !== food.id) };
-                            }
-                            if (meal.id === destinationMealId) {
-                                return { ...meal, foods: [...meal.foods, food] };
-                            }
-                            return meal;
-                        })
-                    );
-                },
-                (tx, error) => {
-                    console.error('Error moving food:', error);
-                }
-            );
-        });
-    };
 
     return (
         <MealContext.Provider

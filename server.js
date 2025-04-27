@@ -105,6 +105,235 @@ app.post('/updateProfile', async (req, res) => {
     }
 });
 
+// Fetch all meals (with foods) by username & date
+app.get('/getUserMeals', async (req, res) => {
+    const { username, date } = req.query;
+    if (!username || !date) {
+        return res.status(400).json({ error: 'username and date are required' });
+    }
+    try {
+        // find the Postgres user_id
+        const uRes = await pool.query(
+            'SELECT id FROM users WHERE username = $1;',
+            [username]
+        );
+        if (uRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const user_id = uRes.rows[0].id;
+
+        // load that user’s meals
+        const mRes = await pool.query(
+            'SELECT * FROM user_meals WHERE user_id = $1 AND date = $2;',
+            [user_id, date]
+        );
+
+        // for each meal load its foods
+        const withFoods = await Promise.all(
+            mRes.rows.map(async (meal) => {
+                const fRes = await pool.query(
+                    'SELECT * FROM user_foods WHERE mealid = $1;',
+                    [meal.mealid]
+                );
+                return { ...meal, foods: fRes.rows };
+            })
+        );
+        res.json(withFoods);
+    } catch (err) {
+        console.error('Error fetching user meals:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.post('/addMeal', async (req, res) => {
+    const { username, date } = req.body;
+    if (!username || !date) {
+        return res
+            .status(400)
+            .json({ error: 'username and date are required' });
+    }
+    try {
+        // Look up the Postgres user_id by username
+        const uRes = await pool.query(
+            'SELECT id FROM users WHERE username = $1;',
+            [username]
+        );
+        if (uRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const userId = uRes.rows[0].id;
+
+        // Count existing meals on that date
+        const countRes = await pool.query(
+            'SELECT COUNT(*) FROM user_meals WHERE user_id = $1 AND date = $2;',
+            [userId, date]
+        );
+        const nextIndex = parseInt(countRes.rows[0].count, 10) + 1;
+        const name = `Meal ${nextIndex}`;
+
+        // Insert the new meal with the computed name
+        const insertRes = await pool.query(
+            `INSERT INTO user_meals (user_id, name, date)
+       VALUES ($1, $2, $3)
+       RETURNING *;`,
+            [userId, name, date]
+        );
+        res.json(insertRes.rows[0]);
+    } catch (err) {
+        console.error('Error adding meal:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.delete('/deleteMeal', async (req, res) => {
+    const mealid = parseInt(req.query.mealid, 10);
+    if (!mealid) {
+        return res.status(400).json({ error: 'mealid query parameter is required' });
+    }
+    try {
+        // Grab the user_id and date for this meal
+        const mInfo = await pool.query(
+            'SELECT user_id, date FROM user_meals WHERE mealid = $1;',
+            [mealid]
+        );
+        if (mInfo.rows.length === 0) {
+            return res.status(404).json({ error: 'Meal not found' });
+        }
+        const { user_id, date } = mInfo.rows[0];
+
+        // Delete the meal
+        await pool.query('DELETE FROM user_meals WHERE mealid = $1;', [mealid]);
+
+        // Renumber all remaining meals for that user+date
+        await pool.query(`WITH ordered AS (
+        SELECT mealid,
+               ROW_NUMBER() OVER (ORDER BY mealid) AS rn
+          FROM user_meals
+         WHERE user_id = $1
+           AND date    = $2
+      )
+      UPDATE user_meals
+         SET name = concat('Meal ', ordered.rn)
+        FROM ordered
+       WHERE user_meals.mealid = ordered.mealid;`,
+            [user_id, date]
+        );
+
+        res.json({ message: 'Meal deleted and renumbered successfully' });
+    } catch (err) {
+        console.error('Error deleting & renumbering meals:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.post('/addFood', async (req, res) => {
+    const { mealid, foodname, grams, category, calories, protein, carbs, fats } = req.body;
+    if (!mealid || !foodname || grams == null || !category) {
+        return res.status(400).json({ error: 'mealid, foodname, grams and category are required' });
+    }
+    try {
+        const result = await pool.query(
+            `INSERT INTO user_foods
+         (mealid, foodname, grams, category, calories, protein, carbs, fats)
+       VALUES
+         ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING *;`,
+            [mealid, foodname, grams, category, calories, protein, carbs, fats]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error adding food:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.put('/updateFood', async (req, res) => {
+    const { foodid, foodname, grams, category, calories, protein, carbs, fats } = req.body;
+    if (!foodid || !foodname || grams == null || !category) {
+        return res.status(400).json({ error: 'foodid, foodname, grams and category are required' });
+    }
+    try {
+        //update the food in the database
+        const result = await pool.query(
+            `UPDATE user_foods
+         SET foodname = $1,
+             grams     = $2,
+             category  = $3,
+             calories  = $4,
+             protein   = $5,
+             carbs     = $6,
+             fats      = $7
+       WHERE foodid = $8
+       RETURNING *;`,
+            [foodname, grams, category, calories, protein, carbs, fats, foodid]
+        );
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Food not found' });
+        }
+        const updatedRow = result.rows[0];
+
+        // now fetch all foods for that meal, in stable order
+        const foodsRes = await pool.query(
+            'SELECT * FROM user_foods WHERE mealid = $1 ORDER BY foodid ASC;',
+            [updatedRow.mealid]
+        );
+
+        // return both the single updated row (if you still need it) and the full list
+        res.json({
+            updatedFood: updatedRow,
+            foods: foodsRes.rows,
+        });
+    } catch (err) {
+        console.error('Error updating food:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.delete('/deleteFood', async (req, res) => {
+    const foodid = parseInt(req.query.foodid, 10);
+    if (!foodid) {
+        return res.status(400).json({ error: 'foodid query parameter is required' });
+    }
+    try {
+        const result = await pool.query(
+            'DELETE FROM user_foods WHERE foodid = $1;',
+            [foodid]
+        );
+        if (result.rowCount > 0) {
+            res.json({ message: 'Food deleted successfully' });
+        } else {
+            res.status(404).json({ error: 'Food not found' });
+        }
+    } catch (err) {
+        console.error('Error deleting food:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.put('/moveFood', async (req, res) => {
+    const { foodid, destinationMealId } = req.body;
+    if (!foodid || !destinationMealId) {
+        return res.status(400).json({ error: 'foodid and destinationMealId are required' });
+    }
+    try {
+        const result = await pool.query(
+            `UPDATE user_foods
+         SET mealid = $1
+       WHERE foodid = $2
+       RETURNING *;`,
+            [destinationMealId, foodid]
+        );
+        if (result.rowCount > 0) {
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Food not found' });
+        }
+    } catch (err) {
+        console.error('Error moving food:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Get distinct food categories from the foods table
 app.get('/getCategories', async (req, res) => {
     try {
@@ -137,6 +366,7 @@ app.get('/getFoodsByCategory', async (req, res) => {
     }
 });
 
+// Get all exercises by primary muscle group
 app.get('/getExercisesByPrimaryMuscle', async (req, res) => {
     try {
         const { muscles } = req.query;

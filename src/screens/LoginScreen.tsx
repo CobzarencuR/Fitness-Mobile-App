@@ -43,6 +43,8 @@ export default function LoginScreen({ navigation }: Props) {
                                 if (rows.length > 0) {
                                     const localId = rows.item(0).id.toString();
                                     await AsyncStorage.setItem('loggedInUserId', localId);
+                                    await AsyncStorage.setItem('loggedInUsername', username);
+
                                 } else {
                                     console.warn('Local SQLite user not found for', username);
                                 }

@@ -19,19 +19,8 @@ const MealScreen = () => {
     const [moveModalVisible, setMoveModalVisible] = useState(false);
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [selectedMealId, setSelectedMealId] = useState<number | null>(null);
-    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
     const formattedDate = selectedDate.toISOString().split('T')[0];
-
-    useEffect(() => {
-        const fetchUserId = async () => {
-            const storedUserId = await AsyncStorage.getItem('loggedInUserId');
-            if (storedUserId) {
-                setCurrentUserId(parseInt(storedUserId, 10));
-            }
-        };
-        fetchUserId();
-    }, []);
 
     // Reload meals when the screen gains focus or when selectedDate changes.
     useFocusEffect(
@@ -41,9 +30,7 @@ const MealScreen = () => {
     );
 
     // Filter meals for current user (should already be filtered in loadMeals)
-    const userMeals = currentUserId
-        ? meals.filter((meal) => meal.userId === currentUserId)
-        : [];
+    const userMeals = meals;
 
     const handleDeleteMeal = (mealId: number) => {
         Alert.alert(
@@ -78,17 +65,13 @@ const MealScreen = () => {
     };
 
     const handleAddMeal = () => {
-        if (currentUserId) {
-            addMeal(currentUserId, formattedDate);
-        } else {
-            Alert.alert('Error', 'User id not found');
-        }
+        addMeal(formattedDate);
     };
+
 
     return (
         <>
             <ScrollView contentContainerStyle={styles.container}>
-
                 <View style={styles.datePickerRow}>
                     <Text style={styles.dateLabel}>Selected Date:</Text>
                     <TouchableOpacity onPress={() => setShowDatePicker(true)}>
@@ -263,6 +246,7 @@ const styles = StyleSheet.create({
         padding: 10,
         marginBottom: 16,
         position: 'relative',
+        backgroundColor: '#fff',
     },
     mealHeader: {
         paddingRight: 30,
