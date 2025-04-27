@@ -2,24 +2,56 @@ import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { MealContext, Food } from '../context/MealContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import SQLite from 'react-native-sqlite-storage';
+
+const db = SQLite.openDatabase(
+    { name: 'fitnessApp.db', location: 'default' },
+    () => console.log('Database opened successfully'),
+    (error) => console.log('Error opening database:', error)
+);
+
+type RouteParams = { mealId: number; food: Food };
 
 const FoodDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { mealId, food } = route.params as { mealId: number; food: Food };
+    const { mealId, food } = route.params as RouteParams;
+    const { meals, addFoodToMeal, updateFoodInMeal } = useContext(MealContext);
 
-    // Set up state for editable grams. In a real app you might recalc macros/calories based on grams.
     const [grams, setGrams] = useState(food.grams.toString());
-    const { addFoodToMeal, updateFoodInMeal } = useContext(MealContext);
 
-    const handleSave = () => {
+    const fetchTargetCalories = async (): Promise<number> => {
+        const storedUsername = await AsyncStorage.getItem('loggedInUsername');
+        if (!storedUsername) return 0;
+        return new Promise((resolve) => {
+            db.transaction((tx) => {
+                tx.executeSql(
+                    'SELECT calories FROM users WHERE username = ?;',
+                    [storedUsername],
+                    (_, results) => {
+                        if (results.rows.length > 0) {
+                            resolve(results.rows.item(0).calories || 0);
+                        } else {
+                            resolve(0);
+                        }
+                    },
+                    () => resolve(0)
+                );
+            });
+        });
+    };
+
+    const computeConsumedCalories = (): number => {
+        return meals.reduce((sum, m) => sum + m.foods.reduce((s, f) => s + f.calories, 0), 0);
+    };
+
+    const handleSave = async () => {
         const newGrams = parseFloat(grams);
         if (isNaN(newGrams) || newGrams <= 0) {
             Alert.alert('Invalid input', 'Please enter a valid number for grams.');
             return;
         }
-        // Calculate the factor based on the original food grams.
-        // (You might want to store an immutable baseline if you expect multiple edits.)
 
         const factor = newGrams / food.grams;
         const updatedFood: Food = {
@@ -29,18 +61,37 @@ const FoodDetailScreen = () => {
             protein: parseFloat((food.protein * factor).toFixed(1)),
             carbs: parseFloat((food.carbs * factor).toFixed(1)),
             fats: parseFloat((food.fats * factor).toFixed(1)),
-            // id: Date.now(),
+            id: food.id,
         };
 
-        console.log("handleSave: updatedFood computed:", updatedFood);
+        // Calculate remaining calories
+        const targetCalories = await fetchTargetCalories();
+        const consumedTotal = computeConsumedCalories();
+        // Determine calorie difference: update vs add
+        const existsInMeal = meals.some((m) =>
+            m.id === mealId && m.foods.some((f) => f.id === food.id)
+        );
+        const diff = existsInMeal
+            ? updatedFood.calories - food.calories
+            : updatedFood.calories;
+        const newTotal = consumedTotal + diff;
 
-        // Check if the food already exists (has a non-zero id)
-        if (food.id && food.id !== 0) {
-            updateFoodInMeal(mealId, updatedFood);
-        } else {
-            updatedFood.id = Date.now();
-            addFoodToMeal(mealId, updatedFood);
+        if (newTotal > targetCalories) {
+            const remaining = targetCalories - consumedTotal;
+            Alert.alert(
+                'Not enough calories',
+                `You only have ${remaining} calories remaining. Remove some foods or reduce grams.`
+            );
+            return;
         }
+
+        // Proceed to update or add
+        if (existsInMeal) {
+            await updateFoodInMeal(mealId, updatedFood);
+        } else {
+            await addFoodToMeal(mealId, updatedFood);
+        }
+
         navigation.goBack();
     };
 
