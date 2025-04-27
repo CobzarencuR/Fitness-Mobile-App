@@ -132,7 +132,7 @@ app.get('/getUserMeals', async (req, res) => {
         const withFoods = await Promise.all(
             mRes.rows.map(async (meal) => {
                 const fRes = await pool.query(
-                    'SELECT * FROM user_foods WHERE mealid = $1;',
+                    'SELECT * FROM user_foods WHERE mealid = $1 ORDER BY foodid ASC;',
                     [meal.mealid]
                 );
                 return { ...meal, foods: fRes.rows };
