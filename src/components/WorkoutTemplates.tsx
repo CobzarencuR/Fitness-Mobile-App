@@ -6,6 +6,7 @@ export interface ExercisePlanItem {
     primary_muscle_group: string;
     secondary_muscle_group: string | null;
     tertiary_muscle_group: string | null;
+    video_url?: string | null;
     sets: number;
     reps: number;
     weight: string;

@@ -388,6 +388,30 @@ app.get('/getExercisesByPrimaryMuscle', async (req, res) => {
     }
 });
 
+// GET detailed info for one exercise (including video_url)
+app.get('/getExerciseDetail', async (req, res) => {
+    const { name } = req.query;
+    if (!name) {
+        return res.status(400).json({ error: 'name query parameter is required' });
+    }
+    try {
+        const result = await pool.query(
+            `SELECT *
+       FROM exercises
+       WHERE name = $1
+       LIMIT 1;`,
+            [name]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Exercise not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error fetching exercise detail:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // FETCH a saved plan
 app.get('/getWorkoutPlan', async (req, res) => {
     const { username } = req.query;

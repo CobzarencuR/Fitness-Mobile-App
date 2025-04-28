@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { WorkoutContext } from '../context/WorkoutContext'
 import { UserContext } from '../context/UserContext'
 import { PlanTemplates, ExercisePlanItem, PersonType } from '../components/WorkoutTemplates'
+import { WebView } from 'react-native-webview';
 
 type SplitDay = { name: string }
 const splitKeysByDays: Record<number, SplitDay[]> = {
@@ -40,12 +41,51 @@ export default function WorkoutScreen() {
     const [selectedPosition, setSelectedPosition] = useState<{ day: number; index: number } | null>(null)
     const [swapList, setSwapList] = useState<ExercisePlanItem[]>([])
 
+    // NEW: exerciseDetail state for full record including video_url
+    const [exerciseDetail, setExerciseDetail] = useState<{
+        name: string;
+        equipment: string;
+        primary_muscle_group: string;
+        secondary_muscle_group?: string;
+        tertiary_muscle_group?: string;
+        video_url?: string;
+    } | null>(null)
+
     // Reload metrics whenever screen focuses
     useFocusEffect(
         useCallback(() => {
             reload()
         }, [reload])
     )
+
+    // Fetch exercise detail when modal opens
+    useEffect(() => {
+        if (descModalVisible && selectedExercise) {
+            fetch(`${BACKEND}/getExerciseDetail?name=${encodeURIComponent(selectedExercise.name)}`)
+                .then(async res => {
+                    const text = await res.text();
+                    console.log('[getExerciseDetail] status:', res.status, 'body:', text);
+                    if (res.ok) {
+                        try {
+                            const detail = JSON.parse(text);
+                            setExerciseDetail(detail);
+                        } catch (parseErr) {
+                            console.error('Failed to parse detail JSON', parseErr);
+                            setExerciseDetail(null);
+                        }
+                    } else {
+                        console.error('getExerciseDetail returned error status');
+                        setExerciseDetail(null);
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load exercise detail', err);
+                    setExerciseDetail(null);
+                });
+        } else {
+            setExerciseDetail(null);
+        }
+    }, [descModalVisible, selectedExercise])
 
     // Create the person type based on height and weight
     let personType = React.useMemo<'underweight' | 'normal' | 'overweight'>(() => {
@@ -247,11 +287,23 @@ export default function WorkoutScreen() {
             <Modal visible={descModalVisible} transparent animationType="slide" onRequestClose={() => setDescModalVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalBox}>
-                        <Text style={styles.modalTitle}>{selectedExercise?.name}</Text>
-                        <Text>Equipment: {selectedExercise?.equipment}</Text>
-                        <Text>Primary: {selectedExercise?.primary_muscle_group}</Text>
-                        {selectedExercise?.secondary_muscle_group && (<Text>Secondary: {selectedExercise.secondary_muscle_group}</Text>)}
-                        {selectedExercise?.tertiary_muscle_group && (<Text>Tertiary: {selectedExercise.tertiary_muscle_group}</Text>)}
+                        <Text style={styles.modalTitle}>{exerciseDetail?.name}</Text>
+                        <Text>Equipment: {exerciseDetail?.equipment}</Text>
+                        <Text>Primary: {exerciseDetail?.primary_muscle_group}</Text>
+                        {exerciseDetail?.secondary_muscle_group && (<Text>Secondary: {exerciseDetail.secondary_muscle_group}</Text>)}
+                        {exerciseDetail?.tertiary_muscle_group && (<Text>Tertiary: {exerciseDetail.tertiary_muscle_group}</Text>)}
+                        {exerciseDetail?.video_url ? (
+                            <View style={{ width: '100%', height: 200, marginTop: 12 }}>
+                                <WebView
+                                    source={{ uri: exerciseDetail.video_url }}
+                                    style={{ flex: 1 }}
+                                    javaScriptEnabled
+                                    domStorageEnabled
+                                />
+                            </View>
+                        ) : (
+                            <Text style={{ marginTop: 12, fontStyle: 'italic' }}>No video available for this exercise</Text>
+                        )}
                         <Pressable onPress={() => setDescModalVisible(false)} style={styles.closeBtn}>
                             <Text style={styles.closeText}>Close</Text>
                         </Pressable>

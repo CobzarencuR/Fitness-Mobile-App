@@ -88,7 +88,6 @@ export const MealProvider = ({ children }: Props) => {
     const addMeal = async (date?: string) => {
         const currentDate = date || new Date().toISOString().split('T')[0];
         const username = await AsyncStorage.getItem('loggedInUsername');
-        console.log('[addMeal] username:', username, 'date:', currentDate);
 
         try {
             const res = await fetch(`${BACKEND}/addMeal`, {
@@ -96,9 +95,8 @@ export const MealProvider = ({ children }: Props) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, date: currentDate }),
             });
-            console.log('[addMeal] response status:', res.status);
+
             const text = await res.text();
-            console.log('[addMeal] response body:', text);
 
             if (!res.ok) throw new Error(`Failed to add meal (status ${res.status})`);
             const newMeal = JSON.parse(text);
