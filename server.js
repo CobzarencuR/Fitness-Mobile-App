@@ -388,6 +388,26 @@ app.get('/getExercisesByPrimaryMuscle', async (req, res) => {
     }
 });
 
+// Get all exercises by names
+app.post('/getExercisesByNames', async (req, res) => {
+    const { names } = req.body;
+    if (!Array.isArray(names) || names.length === 0) {
+        return res.status(400).json({ error: 'names array required' });
+    }
+    try {
+        const result = await pool.query(
+            `SELECT *
+       FROM exercises
+       WHERE name = ANY($1);`,
+            [names]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching exercises by names:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // GET detailed info for one exercise (including video_url)
 app.get('/getExerciseDetail', async (req, res) => {
     const { name } = req.query;

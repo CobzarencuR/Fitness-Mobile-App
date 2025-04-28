@@ -1,310 +1,334 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react'
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Pressable } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFocusEffect } from '@react-navigation/native'
-import { WorkoutContext } from '../context/WorkoutContext'
-import { UserContext } from '../context/UserContext'
-import { PlanTemplates, ExercisePlanItem, PersonType } from '../components/WorkoutTemplates'
+import React, { useCallback, useContext, useEffect, useState, useMemo } from 'react';
+import {
+    View,
+    Text,
+    FlatList,
+    StyleSheet,
+    ActivityIndicator,
+    TouchableOpacity,
+    Modal,
+    Pressable,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { WorkoutContext } from '../context/WorkoutContext';
+import { UserContext } from '../context/UserContext';
+import { PlanTemplates, PersonType } from '../components/WorkoutTemplates';
 import { WebView } from 'react-native-webview';
+import type { ExercisePlanItem } from '../components/WorkoutTemplates';
 
-type SplitDay = { name: string }
-const splitKeysByDays: Record<number, SplitDay[]> = {
-    2: [{ name: 'Full Body' }, { name: 'Full Body' }],
-    3: [{ name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }],
-    4: [{ name: 'Upper' }, { name: 'Lower' }, { name: 'Upper' }, { name: 'Lower' }],
-    5: [{ name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }, { name: 'Upper' }, { name: 'Lower' }],
-    6: [{ name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }, { name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }],
-    7: [{ name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }, { name: 'Arms & Shoulders' }, { name: 'Push' }, { name: 'Pull' }, { name: 'Legs' }],
+const TOTAL_WEEKS = 12;
+const BACKEND_URL = 'http://10.0.2.2:3000';
+const difficultyRank = { beginner: 1, intermediate: 2, advanced: 3 };
+const splitSchedule = {
+    2: ['Full Body', 'Full Body'],
+    3: ['Push', 'Pull', 'Legs'],
+    4: ['Upper', 'Lower', 'Upper', 'Lower'],
+    5: ['Push', 'Pull', 'Legs', 'Upper', 'Lower'],
+    6: ['Push', 'Pull', 'Legs', 'Push', 'Pull', 'Legs'],
+    7: ['Push', 'Pull', 'Legs', 'Arms & Shoulders', 'Push', 'Pull', 'Legs'],
+};
+
+// Helpers
+function classifyPersonType(height: number, weight: number): PersonType {
+    if ((height <= 160 && weight >= 80) || (height <= 170 && weight >= 90)) return 'overweight';
+    if ((height >= 180 && weight <= 60) || (height >= 190 && weight <= 65)) return 'underweight';
+    return 'normal';
 }
 
-const TOTAL_WEEKS = 12 // 3 months × 4 weeks
-const BACKEND = 'http://10.0.2.2:3000'
-// Map difficulty to rank
-const difficultyRank: Record<'beginner' | 'intermediate' | 'advanced', number> = {
-    beginner: 1,
-    intermediate: 2,
-    advanced: 3,
+async function fetchExerciseDetail(name: string) {
+    const res = await fetch(`${BACKEND_URL}/getExerciseDetail?name=${encodeURIComponent(name)}`);
+    if (!res.ok) throw new Error('Failed to load exercise detail');
+    return res.json();
+}
+
+async function fetchServerPlan(username: string) {
+    const res = await fetch(`${BACKEND_URL}/getWorkoutPlan?username=${encodeURIComponent(username)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.plan;
+}
+
+function extractUniqueNames(plan: any[][][]) {
+    return Array.from(new Set(plan.flat(2).map((item: any) => item.name)));
+}
+
+async function rehydratePlan(
+    minimalPlan: any[][][],
+    experience: 'beginner' | 'intermediate' | 'advanced'
+) {
+    const flatNames = extractUniqueNames(minimalPlan);
+    const res = await fetch(`${BACKEND_URL}/getExercisesByNames`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: flatNames }),
+    });
+    if (!res.ok) return null;
+    const details: ExercisePlanItem[] = await res.json();
+    const detailMap = new Map(details.map((d) => [d.name, d]));
+    const expectedSets = experience === 'beginner' ? 3 : 4;
+
+    // if first item matches sets, rehydrate
+    const first = minimalPlan[0]?.[0]?.[0];
+    if (first?.sets !== expectedSets) return null;
+
+    return minimalPlan.map((week) =>
+        week.map((day) =>
+            day.map((item: any) => {
+                const detail = detailMap.get(item.name)!;
+                return { ...detail, sets: item.sets, reps: item.reps, weight: item.weight };
+            })
+        )
+    );
+}
+
+async function generateFreshPlan(
+    experience: 'beginner' | 'intermediate' | 'advanced',
+    personType: PersonType,
+    trainingDays: number
+) {
+    const template = PlanTemplates[experience][personType][trainingDays] || [];
+    const uniqueNames = Array.from(new Set(template.flat()));
+
+    const res = await fetch(`${BACKEND_URL}/getExercisesByNames`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: uniqueNames }),
+    });
+    const details: ExercisePlanItem[] = res.ok ? await res.json() : [];
+    const detailMap = new Map(details.map((d) => [d.name, d]));
+
+    return Array.from({ length: TOTAL_WEEKS }, (_, weekIdx) => {
+        const monthOffset = Math.floor(weekIdx / 4);
+        return template.map((dayNames) =>
+            dayNames.map((name) => {
+                const base = detailMap.get(name)!;
+                const sets = experience === 'beginner' ? 3 : 4;
+                const reps = (base.movement === 'compound' ? 8 : 10) + monthOffset;
+                return { ...base, sets, reps, weight: 'TBD' };
+            })
+        );
+    });
 }
 
 export default function WorkoutScreen() {
-    const { height, weight, sex, objective, trainingDays, experience, reload } = useContext(WorkoutContext)
-    const { user } = useContext(UserContext)
+    const { height, weight, sex, objective, trainingDays, experience, reload } = useContext(WorkoutContext);
+    const { user } = useContext(UserContext);
 
-    const [plans, setPlans] = useState<ExercisePlanItem[][][]>([])
-    const [weekIndex, setWeekIndex] = useState(0)
-    const [loading, setLoading] = useState(true)
+    const [plans, setPlans] = useState<ExercisePlanItem[][][]>([]);
+    const [weekIndex, setWeekIndex] = useState(0);
+    const [loading, setLoading] = useState(true);
 
-    // Modal + swap state
-    const [descModalVisible, setDescModalVisible] = useState(false)
-    const [swapModalVisible, setSwapModalVisible] = useState(false)
-    const [selectedExercise, setSelectedExercise] = useState<ExercisePlanItem | null>(null)
-    const [selectedPosition, setSelectedPosition] = useState<{ day: number; index: number } | null>(null)
-    const [swapList, setSwapList] = useState<ExercisePlanItem[]>([])
+    const [descVisible, setDescVisible] = useState(false);
+    const [swapVisible, setSwapVisible] = useState(false);
+    const [selectedEx, setSelectedEx] = useState<ExercisePlanItem | null>(null);
+    const [modalDay, setModalDay] = useState<number | null>(null);
+    const [modalIdx, setModalIdx] = useState<number | null>(null);
+    const [swapOptions, setSwapOptions] = useState<ExercisePlanItem[]>([]);
+    const [exDetail, setExDetail] = useState<ExercisePlanItem | null>(null);
 
-    // NEW: exerciseDetail state for full record including video_url
-    const [exerciseDetail, setExerciseDetail] = useState<{
-        name: string;
-        equipment: string;
-        primary_muscle_group: string;
-        secondary_muscle_group?: string;
-        tertiary_muscle_group?: string;
-        video_url?: string;
-    } | null>(null)
+    const personType = useMemo(() => {
+        if (height !== null && weight !== null) {
+            return classifyPersonType(height, weight);
+        }
+        return 'normal';
+    }, [height, weight]);
 
-    // Reload metrics whenever screen focuses
-    useFocusEffect(
-        useCallback(() => {
-            reload()
-        }, [reload])
-    )
+    const dayLabels = splitSchedule[trainingDays! as keyof typeof splitSchedule] || [];
+    const currentWeek = plans[weekIndex] || [];
+    const atStart = weekIndex === 0;
+    const atEnd = weekIndex === TOTAL_WEEKS - 1;
+    const monthNum = Math.floor(weekIndex / 4) + 1;
+    const weekNum = (weekIndex % 4) + 1;
 
-    // Fetch exercise detail when modal opens
+    // Reload on focus
+    useFocusEffect(useCallback(() => { reload(); }, [reload]));
+
+    // Fetch fresh detail when opening description modal
     useEffect(() => {
-        if (descModalVisible && selectedExercise) {
-            fetch(`${BACKEND}/getExerciseDetail?name=${encodeURIComponent(selectedExercise.name)}`)
-                .then(async res => {
-                    const text = await res.text();
-                    console.log('[getExerciseDetail] status:', res.status, 'body:', text);
-                    if (res.ok) {
-                        try {
-                            const detail = JSON.parse(text);
-                            setExerciseDetail(detail);
-                        } catch (parseErr) {
-                            console.error('Failed to parse detail JSON', parseErr);
-                            setExerciseDetail(null);
-                        }
-                    } else {
-                        console.error('getExerciseDetail returned error status');
-                        setExerciseDetail(null);
-                    }
-                })
-                .catch(err => {
-                    console.error('Failed to load exercise detail', err);
-                    setExerciseDetail(null);
-                });
+        if (descVisible && selectedEx) {
+            fetchExerciseDetail(selectedEx.name)
+                .then(setExDetail)
+                .catch(() => setExDetail(null));
         } else {
-            setExerciseDetail(null);
+            setExDetail(null);
         }
-    }, [descModalVisible, selectedExercise])
+    }, [descVisible, selectedEx]);
 
-    // Create the person type based on height and weight
-    let personType = React.useMemo<'underweight' | 'normal' | 'overweight'>(() => {
-        if (height != null && weight != null) {
-            if ((height <= 160 && weight >= 80) || (height <= 170 && weight >= 90)) {
-                return 'overweight'
-            }
-            if ((height >= 180 && weight <= 60) || (height >= 190 && weight <= 65)) {
-                return 'underweight'
-            }
-        }
-        return 'normal'
-    }, [height, weight])
-
-    //Bumps every exercise’s reps by +monthOffset.
-    //monthOffset = 0 for weeks 0–4, 1 for weeks 5–8, 2 for weeks 9–12.
-    function applyMonthlyProgression(
-        template: ExercisePlanItem[][],
-        weekIndex: number
-    ): ExercisePlanItem[][] {
-        const monthOffset = Math.floor(weekIndex / 4)
-        return template.map(day =>
-            day.map(ex => ({
-                ...ex,
-                reps: ex.reps + monthOffset,
-            }))
-        )
-    }
-
-    // Fetch always from server or regenerate on split/experience mismatch
+    // Load or regenerate plan when dependencies change
     useEffect(() => {
-        let isActive = true
+        let isActive = true;
 
         async function loadPlan() {
-            setLoading(true)
             if (!user?.username || !sex || !objective || !trainingDays || !experience) {
-                setPlans([])
-                setLoading(false)
-                return
+                setPlans([]);
+                setLoading(false);
+                return;
             }
-            const userRank = difficultyRank[experience]
-            const key = `workoutPlan:${user.username}`
 
-            // 1) Try server
-            let serverPlan: ExercisePlanItem[][][] | null = null
+            setLoading(true);
+            const metaKey = `workoutMeta:${user.username}`;
+            const planKey = `workoutPlan:${user.username}`;
+
+            // Check stored metadata
+            let useSaved = false;
             try {
-                const res = await fetch(
-                    `${BACKEND}/getWorkoutPlan?username=${encodeURIComponent(user.username)}`
-                )
-                const contentType = res.headers.get('content-type') || ''
-                if (res.ok && contentType.includes('application/json')) {
-                    const { plan } = await res.json()
-                    serverPlan = Array.isArray(plan) ? plan : null
-                } else {
-                    await res.text() // drain
+                const rawMeta = await AsyncStorage.getItem(metaKey);
+                const meta = rawMeta ? JSON.parse(rawMeta) : {};
+                useSaved = (
+                    meta.experience === experience &&
+                    meta.personType === personType &&
+                    meta.trainingDays === trainingDays
+                );
+            } catch { }
+
+            // Try rehydrate saved plan
+            let loaded = null;
+            if (useSaved) {
+                const serverPlan = await fetchServerPlan(user.username);
+                loaded = serverPlan
+                    ? await rehydratePlan(serverPlan, experience)
+                    : null;
+                if (loaded) {
+                    setPlans(loaded);
+                    setLoading(false);
+                    return;
                 }
-            } catch {
-                // network error
             }
 
-            // Validate serverPlan: correct split & difficulty
-            const validServerPlan = serverPlan && Array.isArray(serverPlan[0]) &&
-                serverPlan[0].length === trainingDays &&
-                !serverPlan.some(week =>
-                    week.some(day =>
-                        day.some(ex => difficultyRank[ex.difficulty] > userRank)
-                    )
-                )
+            // Otherwise generate fresh
+            const freshPlan = await generateFreshPlan(experience, personType, trainingDays!);
+            if (!isActive) return;
+            setPlans(freshPlan);
+            setLoading(false);
 
-            if (validServerPlan && isActive) {
-                // apply progression to each week slice before setting
-                const progressed = serverPlan!.map((week, idx) =>
-                    applyMonthlyProgression(week, idx)
-                )
-                setPlans(progressed)
-                setLoading(false)
-                return
-            }
-
-            // 2) Generate fresh template
-            const tpl = PlanTemplates[experience]?.[personType]?.[trainingDays] ?? splitKeysByDays[trainingDays].map(() => [])
-            const fresh = Array.from({ length: TOTAL_WEEKS }, (_, weekIdx) =>
-                applyMonthlyProgression(
-                    tpl.map(day => day.map(ex => ({ ...ex }))),
-                    weekIdx
-                )
-            )
-            if (isActive) setPlans(fresh)
-
-            // Persist new plan locally & remotely
-            AsyncStorage.setItem(key, JSON.stringify(fresh)).catch(() => { })
-            fetch(`${BACKEND}/saveWorkoutPlan`, {
+            // Persist minimal and metadata
+            const minimal = freshPlan.map(week => week.map(day => day.map(({ name, sets, reps, weight }) => ({ name, sets, reps, weight }))));
+            AsyncStorage.setItem(planKey, JSON.stringify(minimal));
+            AsyncStorage.setItem(metaKey, JSON.stringify({ experience, personType, trainingDays }));
+            fetch(`${BACKEND_URL}/saveWorkoutPlan`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user.username, plan: fresh }),
-            }).catch(() => { })
-
-            setLoading(false)
+                body: JSON.stringify({ username: user.username, plan: minimal }),
+            }).catch(() => { });
         }
 
-        loadPlan()
-        return () => { isActive = false }
-    }, [user?.username, sex, objective, trainingDays, experience, personType])
+        loadPlan();
+        return () => { isActive = false; };
+    }, [user?.username, sex, objective, trainingDays, experience, personType]);
 
-    // Swap handler: replace only selected instance
-    const doSwap = async (newEx: ExercisePlanItem) => {
-        if (!user?.username || !selectedPosition) return
-        const { day, index } = selectedPosition
-        const updated = plans.map((week, wIdx) =>
-            wIdx === weekIndex ?
-                week.map((dayExs, dIdx) =>
-                    dIdx === day ?
-                        dayExs.map((ex, exIdx) =>
-                            exIdx === index ? { ...newEx, sets: ex.sets, reps: ex.reps, weight: ex.weight } : ex
-                        ) : dayExs
-                ) : week
-        )
-        setPlans(updated)
-        setSwapModalVisible(false)
-        const key = `workoutPlan:${user.username}`
-        AsyncStorage.setItem(key, JSON.stringify(updated)).catch(() => { })
-        fetch(`${BACKEND}/saveWorkoutPlan`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: user.username, plan: updated }),
-        }).catch(() => { })
-    }
-
-    // Capture position and filter swaps by allowed difficulties
-    const onExerciseLongPress = async (ex: ExercisePlanItem, dayIdx: number, exIdx: number) => {
-        setSelectedExercise(ex)
-        setSelectedPosition({ day: dayIdx, index: exIdx })
+    // Swap exercise
+    const handleLongPress = async (ex: ExercisePlanItem, day: number, idx: number) => {
+        setSelectedEx(ex);
+        setModalDay(day);
+        setModalIdx(idx);
         try {
             const res = await fetch(
-                `${BACKEND}/getExercisesByPrimaryMuscle?muscles=${encodeURIComponent(ex.primary_muscle_group)}`
-            )
-            const list = (await res.json()) as ExercisePlanItem[]
-            const userRank = difficultyRank[experience as keyof typeof difficultyRank]
-            const filtered = list.filter(e =>
-                difficultyRank[e.difficulty] <= userRank && e.name !== ex.name
-            )
-            setSwapList(filtered)
+                `${BACKEND_URL}/getExercisesByPrimaryMuscle?muscles=${encodeURIComponent(ex.primary_muscle_group)}`
+            );
+            const list: ExercisePlanItem[] = await res.json();
+            const maxRank = difficultyRank[experience!];
+            setSwapOptions(list.filter(e =>
+                e.name !== ex.name &&
+                e.movement === ex.movement &&
+                e.primary_muscle_group === ex.primary_muscle_group &&
+                difficultyRank[e.difficulty] <= maxRank
+            ));
         } catch {
-            setSwapList([])
+            setSwapOptions([]);
         }
-        setSwapModalVisible(true)
-    }
+        setSwapVisible(true);
+    };
 
-    if (loading) {
-        return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" />
-            </View>
-        )
-    }
+    const applySwap = (newEx: ExercisePlanItem) => {
+        if (modalDay === null || modalIdx === null || !selectedEx) return;
+        const updated = plans.map((week, w) =>
+            w === weekIndex
+                ? week.map((day, d) =>
+                    d === modalDay
+                        ? day.map((e, i) => i === modalIdx ? { ...newEx, sets: e.sets, reps: e.reps, weight: e.weight } : e)
+                        : day
+                )
+                : week
+        );
+        setPlans(updated);
+        setSwapVisible(false);
+        // persist swap
+        const minimal = updated.map(w => w.map(d => d.map(({ name, sets, reps, weight }) => ({ name, sets, reps, weight }))));
+        AsyncStorage.setItem(
+            `workoutPlan:${user!.username}`,
+            JSON.stringify(minimal)
+        );
+        fetch(`${BACKEND_URL}/saveWorkoutPlan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user!.username, plan: minimal }),
+        }).catch(() => { });
+    };
 
-    // Render with pagination
-    const atStart = weekIndex === 0
-    const atEnd = weekIndex === TOTAL_WEEKS - 1
-    const month = Math.floor(weekIndex / 4) + 1
-    const weekOfMon = (weekIndex % 4) + 1
-    const dayTemplates = splitKeysByDays[trainingDays!] || []
-    const currentPlan = plans[weekIndex] || dayTemplates.map(() => [])
+    if (loading) return (
+        <View style={styles.center}><ActivityIndicator size="large" /></View>
+    );
 
     return (
         <View style={styles.container}>
+            {/* Navigation */}
             <View style={styles.weekNav}>
-                <TouchableOpacity disabled={atStart} onPress={() => setWeekIndex(idx => Math.max(0, idx - 1))}>
-                    <Text style={[styles.arrow, atStart && styles.arrowDisabled]}>‹</Text>
+                <TouchableOpacity disabled={atStart} onPress={() => setWeekIndex(i => Math.max(0, i - 1))}>
+                    <Text style={[styles.arrow, atStart && styles.disabled]}>‹</Text>
                 </TouchableOpacity>
-                <Text style={styles.weekLabel}>Month {month} Week {weekOfMon}</Text>
-                <TouchableOpacity disabled={atEnd} onPress={() => setWeekIndex(idx => Math.min(TOTAL_WEEKS - 1, idx + 1))}>
-                    <Text style={[styles.arrow, atEnd && styles.arrowDisabled]}>›</Text>
+                <Text style={styles.weekLabel}>Month {monthNum} Week {weekNum}</Text>
+                <TouchableOpacity disabled={atEnd} onPress={() => setWeekIndex(i => Math.min(TOTAL_WEEKS - 1, i + 1))}>
+                    <Text style={[styles.arrow, atEnd && styles.disabled]}>›</Text>
                 </TouchableOpacity>
             </View>
+
             <Text style={styles.header}>{trainingDays}-Day Split — {user?.username}</Text>
+
             <FlatList
-                data={dayTemplates}
-                keyExtractor={(_, i) => i.toString()}
-                renderItem={({ item, index: dayIdx }) => (
+                data={dayLabels}
+                keyExtractor={(_, i) => String(i)}
+                renderItem={({ item, index }) => (
                     <View style={styles.dayBox}>
-                        <Text style={styles.dayLabel}>Day {dayIdx + 1}: {item.name}</Text>
-                        {currentPlan[dayIdx]?.map((ex, exIdx) => (
+                        <Text style={styles.dayLabel}>Day {index + 1}: {item}</Text>
+                        {(currentWeek[index] || []).map((ex, idx) => (
                             <TouchableOpacity
-                                key={`${dayIdx}-${exIdx}`}
-                                onPress={() => { setSelectedExercise(ex); setSelectedPosition({ day: dayIdx, index: exIdx }); setDescModalVisible(true) }}
-                                onLongPress={() => onExerciseLongPress(ex, dayIdx, exIdx)}
-                                style={styles.exItem}
+                                key={ex.name + idx}
+                                style={styles.exerciseRow}
+                                onPress={() => { setSelectedEx(ex); setDescVisible(true); }}
+                                onLongPress={() => handleLongPress(ex, index, idx)}
                             >
-                                <Text style={styles.exName}>{ex.name}</Text>
-                                <Text style={styles.exDetails}>{ex.sets}×{ex.reps} @ {ex.weight}</Text>
+                                <Text style={styles.exerciseName}>{ex.name}</Text>
+                                <Text style={styles.exerciseDetails}>{ex.sets}×{ex.reps} @ {ex.weight}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
                 )}
             />
 
-            {/* Description Modal */}
-            <Modal visible={descModalVisible} transparent animationType="slide" onRequestClose={() => setDescModalVisible(false)}>
+            {/* Detail Modal */}
+            <Modal visible={descVisible} transparent animationType="slide" onRequestClose={() => setDescVisible(false)}>
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalBox}>
-                        <Text style={styles.modalTitle}>{exerciseDetail?.name}</Text>
-                        <Text>Equipment: {exerciseDetail?.equipment}</Text>
-                        <Text>Primary: {exerciseDetail?.primary_muscle_group}</Text>
-                        {exerciseDetail?.secondary_muscle_group && (<Text>Secondary: {exerciseDetail.secondary_muscle_group}</Text>)}
-                        {exerciseDetail?.tertiary_muscle_group && (<Text>Tertiary: {exerciseDetail.tertiary_muscle_group}</Text>)}
-                        {exerciseDetail?.video_url ? (
-                            <View style={{ width: '100%', height: 200, marginTop: 12 }}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{exDetail?.name}</Text>
+                        <Text>Equipment: {exDetail?.equipment}</Text>
+                        <Text>Primary: {exDetail?.primary_muscle_group}</Text>
+                        {exDetail?.secondary_muscle_group && <Text>Secondary: {exDetail.secondary_muscle_group}</Text>}
+                        {exDetail?.tertiary_muscle_group && <Text>Tertiary: {exDetail.tertiary_muscle_group}</Text>}
+                        {exDetail?.video_url
+                            ? <View style={{ width: '100%', height: 200, marginTop: 12 }}>
                                 <WebView
-                                    source={{ uri: exerciseDetail.video_url }}
+                                    source={{ uri: exDetail.video_url }}
                                     style={{ flex: 1 }}
                                     javaScriptEnabled
                                     domStorageEnabled
                                 />
                             </View>
-                        ) : (
-                            <Text style={{ marginTop: 12, fontStyle: 'italic' }}>No video available for this exercise</Text>
-                        )}
-                        <Pressable onPress={() => setDescModalVisible(false)} style={styles.closeBtn}>
+                            : <Text style={{ marginTop: 12, fontStyle: 'italic' }}>
+                                No video available for this exercise
+                            </Text>
+                        }
+                        <Pressable style={styles.closeBtn} onPress={() => setDescVisible(false)}>
                             <Text style={styles.closeText}>Close</Text>
                         </Pressable>
                     </View>
@@ -312,27 +336,27 @@ export default function WorkoutScreen() {
             </Modal>
 
             {/* Swap Modal */}
-            <Modal visible={swapModalVisible} transparent animationType="slide" onRequestClose={() => setSwapModalVisible(false)}>
+            <Modal visible={swapVisible} transparent animationType="slide" onRequestClose={() => setSwapVisible(false)}>
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalBox}>
-                        <Text style={styles.modalTitle}>Swap “{selectedExercise?.name}” for:</Text>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Swap “{selectedEx?.name}” for:</Text>
                         <FlatList
-                            data={swapList}
-                            keyExtractor={(e, idx) => `${e.name}-${idx}`}
+                            data={swapOptions}
+                            keyExtractor={(e, i) => e.name + i}
                             renderItem={({ item }) => (
-                                <Pressable onPress={() => doSwap(item)} style={styles.swapOption}>
+                                <Pressable style={styles.swapOption} onPress={() => applySwap(item)}>
                                     <Text>{item.name}</Text>
                                 </Pressable>
                             )}
                         />
-                        <Pressable onPress={() => setSwapModalVisible(false)} style={styles.closeBtn}>
+                        <Pressable style={styles.closeBtn} onPress={() => setSwapVisible(false)}>
                             <Text style={styles.closeText}>Cancel</Text>
                         </Pressable>
                     </View>
                 </View>
             </Modal>
         </View>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
@@ -340,18 +364,18 @@ const styles = StyleSheet.create({
     container: { flex: 1, padding: 16, backgroundColor: '#fff' },
     weekNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     arrow: { fontSize: 28, width: 32, textAlign: 'center' },
-    arrowDisabled: { color: '#ccc' },
+    disabled: { color: '#ccc' },
     weekLabel: { fontSize: 16, fontWeight: '600' },
     header: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
     dayBox: { marginBottom: 20, padding: 12, backgroundColor: '#f0f4f7', borderRadius: 8 },
     dayLabel: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
-    exItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-    exName: { fontSize: 16, flex: 1 },
-    exDetails: { fontSize: 14, textAlign: 'right' },
+    exerciseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    exerciseName: { fontSize: 16, flex: 1 },
+    exerciseDetails: { fontSize: 14, textAlign: 'right' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
-    modalBox: { margin: 20, backgroundColor: 'white', borderRadius: 8, padding: 16 },
+    modalContent: { margin: 20, backgroundColor: 'white', borderRadius: 8, padding: 16 },
     modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
     swapOption: { padding: 12, borderBottomWidth: 1, borderColor: '#eee' },
     closeBtn: { marginTop: 12, padding: 10, borderRadius: 5, alignItems: 'center', backgroundColor: '#ddd' },
     closeText: { fontSize: 16 },
-})
+});
