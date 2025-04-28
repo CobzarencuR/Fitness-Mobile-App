@@ -283,7 +283,7 @@ export default function WorkoutScreen() {
                 </TouchableOpacity>
             </View>
 
-            <Text style={styles.header}>{trainingDays}-Day Split — {user?.username}</Text>
+            <Text style={styles.header}>{trainingDays}-Day Split</Text>
 
             <FlatList
                 data={dayLabels}
@@ -312,19 +312,18 @@ export default function WorkoutScreen() {
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>{exDetail?.name}</Text>
                         <Text>Equipment: {exDetail?.equipment}</Text>
-                        <Text>Primary: {exDetail?.primary_muscle_group}</Text>
-                        {exDetail?.secondary_muscle_group && <Text>Secondary: {exDetail.secondary_muscle_group}</Text>}
-                        {exDetail?.tertiary_muscle_group && <Text>Tertiary: {exDetail.tertiary_muscle_group}</Text>}
+                        <Text>Primary muscle: {exDetail?.primary_muscle_group}</Text>
+                        {exDetail?.secondary_muscle_group && <Text>Secondary muscle: {exDetail.secondary_muscle_group}</Text>}
+                        {exDetail?.tertiary_muscle_group && <Text>Tertiary muscle: {exDetail.tertiary_muscle_group}</Text>}
                         {exDetail?.video_url
-                            ? <View style={{ width: '100%', height: 200, marginTop: 12 }}>
+                            ? <View style={styles.videoBox}>
                                 <WebView
                                     source={{ uri: exDetail.video_url }}
-                                    style={{ flex: 1 }}
                                     javaScriptEnabled
                                     domStorageEnabled
                                 />
                             </View>
-                            : <Text style={{ marginTop: 12, fontStyle: 'italic' }}>
+                            : <Text style={styles.videoText}>
                                 No video available for this exercise
                             </Text>
                         }
@@ -372,6 +371,8 @@ const styles = StyleSheet.create({
     exerciseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
     exerciseName: { fontSize: 16, flex: 1 },
     exerciseDetails: { fontSize: 14, textAlign: 'right' },
+    videoBox: { width: '100%', aspectRatio: 16 / 9, marginTop: 12 },
+    videoText: { marginTop: 12, fontStyle: 'italic' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
     modalContent: { margin: 20, backgroundColor: 'white', borderRadius: 8, padding: 16 },
     modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
