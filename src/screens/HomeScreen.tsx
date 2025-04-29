@@ -1,11 +1,13 @@
 import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import { ScrollView, View, StyleSheet } from 'react-native';
 import UserRemainingMacros from '../components/UserRemainingMacros';
+import GymMap from '../components/GymMap';
 
 export default function HomeScreen() {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <UserRemainingMacros />
+            <GymMap />
         </ScrollView>
     );
 }
