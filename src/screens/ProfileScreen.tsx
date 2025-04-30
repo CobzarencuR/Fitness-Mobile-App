@@ -1,21 +1,12 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TextInput, Button, Image, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
-import SQLite from 'react-native-sqlite-storage';
+import { View, Text, TextInput, Image, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Dropdown } from 'react-native-element-dropdown';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary, ImageLibraryOptions } from 'react-native-image-picker';
 import { UserContext } from '../context/UserContext';
-import { Screen } from 'react-native-screens';
 import Slider from '@react-native-community/slider';
-import { WorkoutContext } from '../context/WorkoutContext';
-
-const db = SQLite.openDatabase(
-    { name: 'fitnessApp.db', location: 'default' },
-    () => console.log('Database opened successfully'),
-    (error) => console.log('Error opening database:', error)
-);
 
 export default function ProfileScreen() {
     const [username, setUsername] = useState('');
@@ -74,46 +65,52 @@ export default function ProfileScreen() {
 
     useEffect(() => {
         const fetchUserProfile = async () => {
-            const storedUsername = await AsyncStorage.getItem('loggedInUsername');
-            if (!storedUsername) {
-                Alert.alert('Error', 'No logged-in user. Please log in again.');
+            const token = await AsyncStorage.getItem('auth-token');
+            if (!token) {
+                Alert.alert('Error', 'No auth token found. Please log in again.');
                 return;
             }
-            db.transaction((tx) => {
-                tx.executeSql(
-                    'SELECT * FROM users WHERE username = ?;',
-                    [storedUsername],
-                    (tx, results) => {
-                        if (results.rows.length > 0) {
-                            const row = results.rows.item(0);
-                            setUsername(row.username);
-                            setEmail(row.email);
-                            setPhotoUri(row.photoUri);
-                            setHeight(row.height ? row.height.toString() : '');
-                            setWeight(row.weight ? row.weight.toString() : '');
-                            setSex(row.sex || '');
-                            setDob(row.dob ? new Date(row.dob) : new Date());
-                            setInitialDob(row.dob ? new Date(row.dob) : new Date());
-                            setActivityLevel(row.activityLevel ? row.activityLevel.toString() : '');
-                            setObjective(row.objective || '');
-                            setExperience(prev => {
-                                return row.experience !== prev ? row.experience : prev;
-                            });
-                            setTrainingDays(prev => {
-                                const dbDays = row.trainingDays || 2;
-                                return dbDays !== prev ? dbDays : prev;
-                            });
-                            // Global user context
-                            setUser({
-                                username: row.username,
-                                photoUri: row.photoUri,
-                            });
-                        }
-                        setProfileLoaded(true);
+
+            try {
+                const response = await fetch('http://localhost:3000/getProfile', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'auth-token': token,
                     },
-                    (error) => console.log('Error fetching user data:', error)
-                );
-            });
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to load profile');
+                }
+
+                // populate all fields exactly as before:
+                setUsername(data.username);
+                setEmail(data.email);
+                setPhotoUri(data.photoUri);
+                setHeight(data.height ? data.height.toString() : '');
+                setWeight(data.weight ? data.weight.toString() : '');
+                setSex(data.sex || '');
+                setDob(data.dob ? new Date(data.dob) : new Date());
+                setInitialDob(data.dob ? new Date(data.dob) : new Date());
+                setActivityLevel(data.activityLevel ? data.activityLevel.toString() : '');
+                setObjective(data.objective || '');
+                setExperience(prev => {
+                    return data.experience !== prev ? data.experience : prev;
+                });
+                setTrainingDays(prev => {
+                    const dbDays = data.trainingDays || 2;
+                    return dbDays !== prev ? dbDays : prev;
+                });
+                // update global context
+                setUser({ username: data.username, photoUri: data.photoUri });
+                setProfileLoaded(true);
+            } catch (err: any) {
+                console.error('Error fetching profile:', err);
+                Alert.alert('Error', err.message);
+            } finally {
+                // setProfileLoaded(true);
+            }
         };
 
         fetchUserProfile();
@@ -185,13 +182,6 @@ export default function ProfileScreen() {
 
     // Function to update user profile
     const updateProfile = async () => {
-        const storedUsername = await AsyncStorage.getItem('loggedInUsername');
-
-        if (!storedUsername) {
-            Alert.alert('Error', 'User not found. Please log in again.');
-            return;
-        }
-
         if (!height || !weight || !sex || !dob || !activityLevel || !objective || !experience || !trainingDays || !photoUri) {
             Alert.alert('Error', 'All fields must be filled in before saving.');
             return;
@@ -217,64 +207,43 @@ export default function ProfileScreen() {
 
         if (!macros) return;
 
-        console.log('Updating profile for username:', storedUsername);
 
-        db.transaction(tx => {
-            tx.executeSql(
-                `UPDATE users
-                        SET height = ?, weight = ?, sex = ?, dob = ?, age = ?, activityLevel = ?, objective = ?, experience = ?, trainingDays = ?, calories = ?, protein = ?, carbs = ?, fats = ?, photoUri = ?
-                        WHERE username = ?;`,
-                [height, weight, sex, dob.toISOString().split('T')[0], age, activityLevel, objective, experience, trainingDays, macros.totalCalories, macros.protein, macros.carbs, macros.fat, photoUri, username],
-                async (_, result) => {
-                    console.log('Rows affected:', result.rowsAffected);
-                    if (result.rowsAffected > 0) {
-                        Alert.alert('Success', 'Profile updated successfully');
-                        setUser({ username, photoUri });
-                        try {
-                            const response = await fetch('http://10.0.2.2:3000/updateProfile', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    username: storedUsername,
-                                    height,
-                                    weight,
-                                    sex,
-                                    dob: dob.toISOString().split('T')[0],
-                                    age,
-                                    activityLevel,
-                                    objective,
-                                    experience,
-                                    trainingDays,
-                                    calories: macros.totalCalories,
-                                    protein: macros.protein,
-                                    carbs: macros.carbs,
-                                    fats: macros.fat,
-                                }),
-                            });
-                            const data = await response.json();
-                            console.log('Response from server:', data);
-                            if (response.ok) {
-                                console.log('Profile updated in PostgreSQL:', data);
-                            } else {
-                                console.log('Error updating profile in PostgreSQL:', data.message);
-                            }
-                        } catch (error) {
-                            console.error('Error connecting to the server:', error);
-                            Alert.alert('Error', 'Failed to update profile in PostgreSQL');
-                        }
-                    } else {
-                        Alert.alert('Error', 'Could not update profile in SQLite');
-                    }
+        try {
+            const response = await fetch('http://localhost:3000/updateProfile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
-                (error) => {
-                    console.log('Error updating profile:', error);
-                    Alert.alert('Database Error', 'error');
-                }
-            );
-        });
-    };
+                body: JSON.stringify({
+                    username,
+                    height,
+                    weight,
+                    sex,
+                    dob: dob.toISOString().split('T')[0],
+                    age,
+                    activityLevel,
+                    objective,
+                    experience,
+                    trainingDays,
+                    calories: macros.totalCalories,
+                    protein: macros.protein,
+                    carbs: macros.carbs,
+                    fats: macros.fat,
+                    photoUri,
+                }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setUser({ username, photoUri });
+                Alert.alert('Success', 'Profile updated successfully');
+            } else {
+                console.log('Error updating profile in PostgreSQL:', data.message);
+            }
+        } catch (error) {
+            console.error('Error connecting to the server:', error);
+            Alert.alert('Error', 'Failed to update profile in PostgreSQL');
+        }
+    }
 
     return (
         <ScrollView>

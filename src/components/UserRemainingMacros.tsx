@@ -2,14 +2,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import SQLite from 'react-native-sqlite-storage';
 import { MealContext, Meal } from '../context/MealContext';
-
-const db = SQLite.openDatabase(
-    { name: 'fitnessApp.db', location: 'default' },
-    () => console.log('Database opened successfully'),
-    (error) => console.log('Error opening database:', error)
-);
 
 type Macros = {
     calories: number;
@@ -18,6 +11,8 @@ type Macros = {
     fats: number;
 };
 
+const BACKEND_URL = 'http://localhost:3000';
+
 const UserRemainingMacros = () => {
     const { meals } = useContext(MealContext);
     const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
@@ -25,42 +20,41 @@ const UserRemainingMacros = () => {
 
     // Fetch the target macros (calories, protein, carbs, fats) from SQLite
     const fetchUserTargetMacros = async () => {
-        const storedUsername = await AsyncStorage.getItem('loggedInUsername');
-        if (!storedUsername) {
-            Alert.alert('Error', 'No logged-in user found.');
+        setLoading(true);
+        const token = await AsyncStorage.getItem('auth-token');
+        if (!token) {
+            Alert.alert('Error', 'You must be logged in to load your macros.');
             setLoading(false);
             return;
         }
-        db.transaction((tx) => {
-            tx.executeSql(
-                'SELECT calories, protein, carbs, fats FROM users WHERE username = ?;',
-                [storedUsername],
-                (tx, results) => {
-                    if (results.rows.length > 0) {
-                        const row = results.rows.item(0);
-                        setTargetMacros({
-                            calories: row.calories ? parseFloat(row.calories) : 0,
-                            protein: row.protein ? parseFloat(row.protein) : 0,
-                            carbs: row.carbs ? parseFloat(row.carbs) : 0,
-                            fats: row.fats ? parseFloat(row.fats) : 0,
-                        });
-                    } else {
-                        Alert.alert('Error', 'User not found in database.');
-                    }
-                    setLoading(false);
+        try {
+            const res = await fetch(`${BACKEND_URL}/getProfile`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
                 },
-                (error) => {
-                    console.log('Error fetching user macros:', error);
-                    setLoading(false);
-                }
-            );
-        });
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.message || 'Failed to load profile');
+            }
+            setTargetMacros({
+                calories: data.calories ? parseFloat(data.calories) : 0,
+                protein: data.protein ? parseFloat(data.protein) : 0,
+                carbs: data.carbs ? parseFloat(data.carbs) : 0,
+                fats: data.fats ? parseFloat(data.fats) : 0,
+            });
+        } catch (error: any) {
+            console.error('Error fetching target macros:', error);
+            Alert.alert('Error', error.message);
+        } finally {
+            setLoading(false);
+        }
     };
-
     // Refresh target data each time the screen gains focus.
     useFocusEffect(
         useCallback(() => {
-            setLoading(true);
             fetchUserTargetMacros();
         }, [])
     );

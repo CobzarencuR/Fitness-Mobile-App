@@ -3,13 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { MealContext, Food } from '../context/MealContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import SQLite from 'react-native-sqlite-storage';
-
-const db = SQLite.openDatabase(
-    { name: 'fitnessApp.db', location: 'default' },
-    () => console.log('Database opened successfully'),
-    (error) => console.log('Error opening database:', error)
-);
 
 type RouteParams = { mealId: number; food: Food };
 
@@ -22,24 +15,23 @@ const FoodDetailScreen = () => {
     const [grams, setGrams] = useState(food.grams.toString());
 
     const fetchTargetCalories = async (): Promise<number> => {
-        const storedUsername = await AsyncStorage.getItem('loggedInUsername');
-        if (!storedUsername) return 0;
-        return new Promise((resolve) => {
-            db.transaction((tx) => {
-                tx.executeSql(
-                    'SELECT calories FROM users WHERE username = ?;',
-                    [storedUsername],
-                    (_, results) => {
-                        if (results.rows.length > 0) {
-                            resolve(results.rows.item(0).calories || 0);
-                        } else {
-                            resolve(0);
-                        }
-                    },
-                    () => resolve(0)
-                );
+        const token = await AsyncStorage.getItem('auth-token');
+        if (!token) return 0;
+        try {
+            const res = await fetch('http://localhost:3000/getProfile', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'auth-token': token,
+                },
             });
-        });
+            if (!res.ok) return 0;
+            const data = await res.json();
+            return data.calories ?? 0;
+        } catch (err) {
+            console.warn('Error fetching target calories:', err);
+            return 0;
+        }
     };
 
     const computeConsumedCalories = (): number => {

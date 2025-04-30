@@ -1,17 +1,16 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import SQLite from 'react-native-sqlite-storage'
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type WorkoutContextType = {
-    height: number | null
-    weight: number | null
-    sex: 'M' | 'F' | null
-    age: number | null
-    objective: 'lose' | 'maintain' | 'gain' | null
-    trainingDays: number | null
-    experience: 'beginner' | 'intermediate' | 'advanced' | null
-    reload: () => void
-}
+export type WorkoutContextType = {
+    height: number | null;
+    weight: number | null;
+    sex: 'M' | 'F' | null;
+    age: number | null;
+    objective: 'lose' | 'maintain' | 'gain' | null;
+    trainingDays: number | null;
+    experience: 'beginner' | 'intermediate' | 'advanced' | null;
+    reload: () => void;
+};
 
 export const WorkoutContext = createContext<WorkoutContextType>({
     height: null,
@@ -22,87 +21,72 @@ export const WorkoutContext = createContext<WorkoutContextType>({
     trainingDays: null,
     experience: null,
     reload: () => { },
-})
+});
+
+const BACKEND_URL = 'http://localhost:3000';
 
 export const WorkoutProvider = ({ children }: { children: ReactNode }) => {
-    const [height, setHeight] = useState<number | null>(null)
-    const [weight, setWeight] = useState<number | null>(null)
-    const [sex, setSex] = useState<'M' | 'F' | null>(null)
-    const [age, setAge] = useState<number | null>(null)
-    const [objective, setObjective] = useState<'lose' | 'maintain' | 'gain' | null>(null)
-    const [trainingDays, setTrainingDays] = useState<number | null>(null)
-    const [experience, setExperience] = useState<'beginner' | 'intermediate' | 'advanced' | null>(null)
-
-    const db = SQLite.openDatabase(
-        { name: 'fitnessApp.db', location: 'default' },
-        () => console.log('WorkoutContext DB opened'),
-        e => console.error('WorkoutContext DB error', e),
-    )
+    const [height, setHeight] = useState<number | null>(null);
+    const [weight, setWeight] = useState<number | null>(null);
+    const [sex, setSex] = useState<'M' | 'F' | null>(null);
+    const [age, setAge] = useState<number | null>(null);
+    const [objective, setObjective] = useState<'lose' | 'maintain' | 'gain' | null>(null);
+    const [trainingDays, setTrainingDays] = useState<number | null>(null);
+    const [experience, setExperience] = useState<'beginner' | 'intermediate' | 'advanced' | null>(null);
 
     const load = async () => {
-        const username = await AsyncStorage.getItem('loggedInUsername')
-        if (!username) {
-            setHeight(null)
-            setWeight(null)
-            setSex(null)
-            setAge(null)
-            setObjective(null)
-            setTrainingDays(null)
-            setExperience(null)
-            return
-        }
-        db.transaction(tx => {
-            tx.executeSql(
-                `SELECT height, weight, sex, age, objective, trainingDays, experience 
-           FROM users 
-          WHERE username = ?;`,
-                [username],
-                (_, { rows }) => {
-                    if (rows.length > 0) {
-                        const r = rows.item(0)
-                        setHeight(r.height)
-                        setWeight(r.weight)
-                        setSex(r.sex)
-                        setAge(r.age)
-                        setObjective(r.objective)
-                        setTrainingDays(r.trainingDays)
-                        setExperience(r.experience)
-                    } else {
-                        setHeight(null)
-                        setWeight(null)
-                        setSex(null)
-                        setAge(null)
-                        setObjective(null)
-                        setTrainingDays(null)
-                        setExperience(null)
-                    }
+        try {
+            const token = await AsyncStorage.getItem('auth-token');
+            if (!token) {
+                console.warn('No auth token, cannot load workout context');
+                reset();
+                return;
+            }
+            const res = await fetch(`${BACKEND_URL}/getProfile`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
                 },
-                (_, err) => {
-                    console.error('WorkoutContext load failed', err)
-                    return false
-                }
-            )
-        })
-    }
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                console.error('Failed to fetch profile for workout context:', data);
+                reset();
+                return;
+            }
+            setHeight(data.height ?? null);
+            setWeight(data.weight ?? null);
+            setSex(data.sex ?? null);
+            setAge(data.age ?? null);
+            setObjective(data.objective ?? null);
+            setTrainingDays(data.trainingdays ?? data.trainingDays ?? null);
+            setExperience(data.experience ?? null);
+        } catch (err) {
+            console.error('Error loading workout context:', err);
+            reset();
+        }
+    };
+
+    const reset = () => {
+        setHeight(null);
+        setWeight(null);
+        setSex(null);
+        setAge(null);
+        setObjective(null);
+        setTrainingDays(null);
+        setExperience(null);
+    };
 
     useEffect(() => {
-        load()
-    }, [])
+        load();
+    }, []);
 
     return (
         <WorkoutContext.Provider
-            value={{
-                height,
-                weight,
-                sex,
-                age,
-                objective,
-                trainingDays,
-                experience,
-                reload: load,
-            }}
+            value={{ height, weight, sex, age, objective, trainingDays, experience, reload: load }}
         >
             {children}
         </WorkoutContext.Provider>
-    )
-}
+    );
+};

@@ -70,17 +70,75 @@ app.post('/login', async (req, res) => {
             { expiresIn: '1h' }
         );
         // Return token to client (also set as header if desired).
-        res.header('auth-token', token).json({ token });
+        // res.header('auth-token', token).json({ token });
+        res.header('auth-token', token).json({ token, userId: user.id });
     } catch (error) {
         console.error('Error during login:', error);
         res.status(500).json({ error: 'Database error' });
     }
 });
+function authenticateToken(req, res, next) {
+    // we expect the client to send it either as 'auth-token' or 'authorization: Bearer <token>'
+    const token =
+        req.header('auth-token') ||
+        (req.header('authorization')?.startsWith('Bearer ')
+            ? req.header('authorization').split(' ')[1]
+            : null);
+
+    if (!token) {
+        return res.status(401).json({ message: 'Access denied. No token provided.' });
+    }
+
+    try {
+        // verify and decode
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;           // e.g. { id: 7, username: 'robert', iat: 168… }
+        next();
+    } catch (ex) {
+        return res.status(401).json({ message: 'Invalid token.' });
+    }
+}
+// server.js (Node/Express)
+app.get('/getProfile', authenticateToken, async (req, res) => {
+    try {
+        const { username } = req.user;
+        const { rows } = await pool.query(
+            `SELECT
+        username,
+        email,
+        photouri    AS "photoUri",
+        height,
+        weight,
+        sex,
+        dob,
+        age,
+        activitylevel   AS "activityLevel",
+        objective,
+        experience,
+        trainingdays    AS "trainingDays",
+        calories,
+        protein,
+        carbs,
+        fats
+      FROM users
+      WHERE username = $1;`,
+            [username]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(rows[0]);  // now the JSON keys exactly match your React state
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        res.status(500).json({ message: 'Error fetching profile' });
+    }
+});
+
 
 // Update User Profile API
 app.post('/updateProfile', async (req, res) => {
     try {
-        const { username, height, weight, sex, dob, age, activityLevel, objective, experience, trainingDays, calories, protein, carbs, fats } = req.body;
+        const { username, height, weight, sex, dob, age, activityLevel, objective, experience, trainingDays, calories, protein, carbs, fats, photoUri } = req.body;
         // Ensure all required fields are provided
         if (!username || !height || !weight || !sex || !dob || !age || !activityLevel || !objective || !experience) {
             return res.status(400).json({ message: 'All fields are required.' });
@@ -89,9 +147,9 @@ app.post('/updateProfile', async (req, res) => {
         // Update the user profile in PostgreSQL
         const result = await pool.query(
             `UPDATE users 
-            SET height = $1, weight = $2, sex = $3, dob = $4, age = $5, activityLevel = $6, objective = $7, experience = $8, trainingDays = $9, calories = $10, protein = $11, carbs = $12, fats = $13
-            WHERE username = $14;`,
-            [height, weight, sex, dob, age, activityLevel, objective, experience, trainingDays, calories, protein, carbs, fats, username]
+            SET height = $1, weight = $2, sex = $3, dob = $4, age = $5, activityLevel = $6, objective = $7, experience = $8, trainingDays = $9, calories = $10, protein = $11, carbs = $12, fats = $13, photoUri = $14
+            WHERE username = $15;`,
+            [height, weight, sex, dob, age, activityLevel, objective, experience, trainingDays, calories, protein, carbs, fats, photoUri, username]
         );
 
         if (result.rowCount > 0) {

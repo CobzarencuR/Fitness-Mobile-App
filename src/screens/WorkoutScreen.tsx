@@ -1,14 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState, useMemo } from 'react';
-import {
-    View,
-    Text,
-    FlatList,
-    StyleSheet,
-    ActivityIndicator,
-    TouchableOpacity,
-    Modal,
-    Pressable,
-} from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { WorkoutContext } from '../context/WorkoutContext';
@@ -18,7 +9,7 @@ import { WebView } from 'react-native-webview';
 import type { ExercisePlanItem } from '../components/WorkoutTemplates';
 
 const TOTAL_WEEKS = 12;
-const BACKEND_URL = 'http://10.0.2.2:3000';
+const BACKEND_URL = 'http://localhost:3000';
 const difficultyRank = { beginner: 1, intermediate: 2, advanced: 3 };
 const splitSchedule = {
     2: ['Full Body', 'Full Body'],

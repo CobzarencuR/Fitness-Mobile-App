@@ -1,40 +1,39 @@
 import React, { useContext, useCallback } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, Alert } from 'react-native';
 import SettingsButton from './SettingsButton';
 import { UserContext } from '../context/UserContext';
-import SQLite from 'react-native-sqlite-storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
-const db = SQLite.openDatabase(
-    { name: 'fitnessApp.db', location: 'default' },
-    () => console.log('Database opened successfully'),
-    (error) => console.log('Error opening database:', error)
-);
+const BACKEND_URL = 'http://localhost:3000';
 
 export default function Header() {
     const { user, setUser } = useContext(UserContext);
 
     const fetchUserPhoto = async () => {
         try {
-            const storedUsername = await AsyncStorage.getItem('loggedInUsername');
-            if (storedUsername) {
-                db.transaction((tx) => {
-                    tx.executeSql(
-                        'SELECT photoUri FROM users WHERE username = ?;',
-                        [storedUsername],
-                        (tx, results) => {
-                            if (results.rows.length > 0) {
-                                const row = results.rows.item(0);
-                                setUser({ username: storedUsername, photoUri: row.photoUri });
-                            }
-                        },
-                        (error) => console.log('Error fetching photoUri:', error)
-                    );
-                });
+            const token = await AsyncStorage.getItem('auth-token');
+            if (!token) return;
+
+            const res = await fetch(`${BACKEND_URL}/getProfile`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'auth-token': token,
+                },
+            });
+            if (!res.ok) {
+                const { message } = await res.json();
+                throw new Error(message || 'Failed to fetch profile');
             }
-        } catch (error) {
-            console.error('Error fetching user photo:', error);
+            const data = await res.json();
+            setUser({
+                username: data.username,
+                photoUri: data.photoUri ?? null,
+            });
+        } catch (err: any) {
+            console.error('Error fetching header profile:', err);
+            Alert.alert('Error', err.message);
         }
     };
 

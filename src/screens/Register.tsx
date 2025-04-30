@@ -1,104 +1,46 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
-import SQLite from 'react-native-sqlite-storage';
-
-const db = SQLite.openDatabase(
-    { name: 'fitnessApp.db', location: 'default' },
-    () => console.log('Database opened successfully'),
-    (error) => console.log('Error opening database:', error)
-);
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 
 export default function Register({ navigation }: any) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [email, setEmail] = useState('');
 
-    const createTable = () => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                `CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    photoUri TEXT,
-                    username TEXT, 
-                    email TEXT,  
-                    height REAL, 
-                    weight REAL, 
-                    sex TEXT, 
-                    dob TEXT,
-                    age INTEGER,
-                    activityLevel REAL,
-                    objective TEXT,
-                    experience TEXT,
-                    trainingDays INTEGER,
-                    calories REAL,
-                    protein REAL,
-                    carbs REAL,
-                    fats REAL
-                );`,
-                [],
-                () => console.log('Users table created successfully'),
-                (error) => console.log('Error creating users table', error)
-            );
-        });
-    };
-
-    const registerUser = () => {
+    const registerUser = async () => {
+        if (!username || !email || !password) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
         if (username && email && password) {
-            db.transaction((tx) => {
-                tx.executeSql(
-                    'SELECT * FROM users WHERE username = ?;',
-                    [username],
-                    (tx, results) => {
-                        if (results.rows.length > 0) {
-                            Alert.alert('Error', 'Username already exists. Please choose another one.');
-                        } else {
-                            tx.executeSql(
-                                'INSERT INTO users (username, email) VALUES (?, ?);',
-                                [username, email],
-                                async () => {
-                                    // Send data to PostgreSQL
-                                    try {
-                                        const response = await fetch('http://10.0.2.2:3000/register', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                            },
-                                            body: JSON.stringify({ username, email, password }),
-                                        });
-
-                                        const data = await response.json();
-                                        if (response.ok) {
-                                            Alert.alert('Registration Successful', 'You can now log in');
-                                            navigation.navigate('Login');
-                                        } else {
-                                            Alert.alert('Error', data.message || 'Could not register user in PostgreSQL');
-                                        }
-                                    } catch (error) {
-                                        Alert.alert('Error', 'Failed to connect to the server');
-                                        console.log('PostgreSQL registration error:', error);
-                                    }
-                                },
-                                (error) => {
-                                    Alert.alert('Error', 'Could not register user');
-                                    console.log('Error inserting user', error);
-                                }
-                            );
-                        }
+            try {
+                const response = await fetch('http://localhost:3000/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     },
-                    (error) => {
-                        Alert.alert('Error', 'Something went wrong');
-                        console.log('Error checking username', error);
+                    body: JSON.stringify({ username, email, password }),
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    Alert.alert('Registration Successful', 'You can now log in');
+                    navigation.navigate('Login');
+                } else {
+                    const errorMsg = data.error || data.message || 'Could not register user';
+                    if (errorMsg.toLowerCase().includes('exists')) {
+                        Alert.alert('Error', 'Username already exists. Please choose another one.');
+                    } else {
+                        Alert.alert('Error', errorMsg);
                     }
-                );
-            });
+                }
+            } catch (error) {
+                Alert.alert('Error', 'Failed to connect to the server');
+                console.log('PostgreSQL registration error:', error);
+            }
         } else {
             Alert.alert('Error', 'Please fill in both fields');
         }
     };
-
-    React.useEffect(() => {
-        createTable();
-    }, []);
 
     return (
         <View style={styles.container}>
