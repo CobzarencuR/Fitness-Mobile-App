@@ -60,16 +60,22 @@ export default function GymMap() {
 
     const fetchNearbyGyms = async (latitude: number, longitude: number) => {
         try {
-            const res = await fetch(
-                `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=5000&type=gym&key=${GOOGLE_API_KEY}`
-            );
+            const url =
+                `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
+                `?location=${latitude},${longitude}` +
+                `&rankby=distance` +
+                `&type=establishment` +
+                `&keyword=gym` +
+                `&key=${GOOGLE_API_KEY}`;
+
+            const res = await fetch(url);
             const data = await res.json();
 
             if (data?.results) {
                 setGyms(data.results);
             }
         } catch (error) {
-            console.warn('[GymMap] Failed to fetch gyms', error);
+            console.warn('Failed to fetch gyms', error);
         } finally {
             setLoading(false);
         }
@@ -113,6 +119,7 @@ export default function GymMap() {
                             longitude: gym.geometry.location.lng,
                         }}
                         title={gym.name}
+                        description={gym.vicinity}
                     />
                 ))}
             </MapView>
