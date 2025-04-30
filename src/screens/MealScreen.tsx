@@ -233,8 +233,9 @@ const styles = StyleSheet.create({
     dateText: { fontSize: 18, color: '#007AFF' },
     addMealButton: {
         backgroundColor: '#007BFF',
-        padding: 10,
+        padding: 8,
         borderRadius: 5,
+        marginTop: 16,
         marginBottom: 16,
         alignItems: 'center',
     },
