@@ -99,8 +99,8 @@ export default function GymMap() {
                 region={{
                     latitude: userLocation.latitude,
                     longitude: userLocation.longitude,
-                    latitudeDelta: 0.0922,
-                    longitudeDelta: 0.0421,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
                 }}
             >
                 {/* Optional: mark the user explicitly */}
