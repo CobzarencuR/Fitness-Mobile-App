@@ -22,7 +22,6 @@ const MealScreen = () => {
 
     const formattedDate = selectedDate.toISOString().split('T')[0];
 
-    // Reload meals when the screen gains focus or when selectedDate changes.
     useFocusEffect(
         React.useCallback(() => {
             loadMeals(formattedDate);

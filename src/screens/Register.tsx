@@ -64,7 +64,6 @@ export default function Register({ navigation }: any) {
                 secureTextEntry
                 onChangeText={setPassword}
             />
-            {/* <Button title="Register" onPress={registerUser} /> */}
             <TouchableOpacity style={styles.button} onPress={registerUser}>
                 <Text style={styles.buttonText}>Register</Text>
             </TouchableOpacity>

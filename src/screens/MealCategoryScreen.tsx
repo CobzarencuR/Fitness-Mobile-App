@@ -23,7 +23,7 @@ const MealCategoryScreen = () => {
                 return response.json();
             })
             .then((data) => {
-                // Expect data to be an array of strings, e.g. ["Meat", "Fruit", "Vegetable", "Grain"]
+                // array of strings ["Meat", "Fruit", "Vegetable", "Grain"]
                 setCategories(data);
                 setLoadingCategories(false);
             })
@@ -36,10 +36,8 @@ const MealCategoryScreen = () => {
     // Toggle the dropdown for a category.
     const toggleCategory = (category: string) => {
         if (expandedCategories[category]) {
-            // Collapse it.
             setExpandedCategories((prev) => ({ ...prev, [category]: false }));
         } else {
-            // Expand it.
             setExpandedCategories((prev) => ({ ...prev, [category]: true }));
             // Initialize search query for this category if not set.
             setSearchQueries((prev) => ({ ...prev, [category]: '' }));

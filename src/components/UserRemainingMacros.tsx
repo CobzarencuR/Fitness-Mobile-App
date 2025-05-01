@@ -18,7 +18,6 @@ const UserRemainingMacros = () => {
     const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Fetch the target macros (calories, protein, carbs, fats) from SQLite
     const fetchUserTargetMacros = async () => {
         setLoading(true);
         const token = await AsyncStorage.getItem('auth-token');
@@ -52,7 +51,7 @@ const UserRemainingMacros = () => {
             setLoading(false);
         }
     };
-    // Refresh target data each time the screen gains focus.
+
     useFocusEffect(
         useCallback(() => {
             fetchUserTargetMacros();

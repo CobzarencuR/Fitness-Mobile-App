@@ -69,7 +69,7 @@ app.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
-        // Return token to client (also set as header if desired).
+        // Return token to client
         // res.header('auth-token', token).json({ token });
         res.header('auth-token', token).json({ token, userId: user.id });
     } catch (error) {
@@ -92,13 +92,13 @@ function authenticateToken(req, res, next) {
     try {
         // verify and decode
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;           // e.g. { id: 7, username: 'robert', iat: 168… }
+        req.user = decoded;
         next();
     } catch (ex) {
         return res.status(401).json({ message: 'Invalid token.' });
     }
 }
-// server.js (Node/Express)
+
 app.get('/getProfile', authenticateToken, async (req, res) => {
     try {
         const { username } = req.user;
@@ -127,24 +127,22 @@ app.get('/getProfile', authenticateToken, async (req, res) => {
         if (rows.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.json(rows[0]);  // now the JSON keys exactly match your React state
+        res.json(rows[0]);
     } catch (error) {
         console.error('Error fetching profile:', error);
         res.status(500).json({ message: 'Error fetching profile' });
     }
 });
 
-
 // Update User Profile API
 app.post('/updateProfile', async (req, res) => {
     try {
         const { username, height, weight, sex, dob, age, activityLevel, objective, experience, trainingDays, calories, protein, carbs, fats, photoUri } = req.body;
-        // Ensure all required fields are provided
+
         if (!username || !height || !weight || !sex || !dob || !age || !activityLevel || !objective || !experience) {
             return res.status(400).json({ message: 'All fields are required.' });
         }
 
-        // Update the user profile in PostgreSQL
         const result = await pool.query(
             `UPDATE users 
             SET height = $1, weight = $2, sex = $3, dob = $4, age = $5, activityLevel = $6, objective = $7, experience = $8, trainingDays = $9, calories = $10, protein = $11, carbs = $12, fats = $13, photoUri = $14
@@ -170,7 +168,6 @@ app.get('/getUserMeals', async (req, res) => {
         return res.status(400).json({ error: 'username and date are required' });
     }
     try {
-        // find the Postgres user_id
         const uRes = await pool.query(
             'SELECT id FROM users WHERE username = $1;',
             [username]
@@ -211,7 +208,6 @@ app.post('/addMeal', async (req, res) => {
             .json({ error: 'username and date are required' });
     }
     try {
-        // Look up the Postgres user_id by username
         const uRes = await pool.query(
             'SELECT id FROM users WHERE username = $1;',
             [username]
@@ -229,7 +225,6 @@ app.post('/addMeal', async (req, res) => {
         const nextIndex = parseInt(countRes.rows[0].count, 10) + 1;
         const name = `Meal ${nextIndex}`;
 
-        // Insert the new meal with the computed name
         const insertRes = await pool.query(
             `INSERT INTO user_meals (user_id, name, date)
        VALUES ($1, $2, $3)
@@ -249,7 +244,6 @@ app.delete('/deleteMeal', async (req, res) => {
         return res.status(400).json({ error: 'mealid query parameter is required' });
     }
     try {
-        // Grab the user_id and date for this meal
         const mInfo = await pool.query(
             'SELECT user_id, date FROM user_meals WHERE mealid = $1;',
             [mealid]
@@ -259,7 +253,6 @@ app.delete('/deleteMeal', async (req, res) => {
         }
         const { user_id, date } = mInfo.rows[0];
 
-        // Delete the meal
         await pool.query('DELETE FROM user_meals WHERE mealid = $1;', [mealid]);
 
         // Renumber all remaining meals for that user+date
@@ -286,15 +279,16 @@ app.delete('/deleteMeal', async (req, res) => {
 
 app.post('/addFood', async (req, res) => {
     const { mealid, foodname, grams, category, calories, protein, carbs, fats } = req.body;
+
     if (!mealid || !foodname || grams == null || !category) {
         return res.status(400).json({ error: 'mealid, foodname, grams and category are required' });
     }
+
     try {
         const result = await pool.query(
             `INSERT INTO user_foods
          (mealid, foodname, grams, category, calories, protein, carbs, fats)
-       VALUES
-         ($1,$2,$3,$4,$5,$6,$7,$8)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *;`,
             [mealid, foodname, grams, category, calories, protein, carbs, fats]
         );
@@ -307,11 +301,12 @@ app.post('/addFood', async (req, res) => {
 
 app.put('/updateFood', async (req, res) => {
     const { foodid, foodname, grams, category, calories, protein, carbs, fats } = req.body;
+
     if (!foodid || !foodname || grams == null || !category) {
         return res.status(400).json({ error: 'foodid, foodname, grams and category are required' });
     }
+
     try {
-        //update the food in the database
         const result = await pool.query(
             `UPDATE user_foods
          SET foodname = $1,
@@ -352,6 +347,7 @@ app.delete('/deleteFood', async (req, res) => {
     if (!foodid) {
         return res.status(400).json({ error: 'foodid query parameter is required' });
     }
+
     try {
         const result = await pool.query(
             'DELETE FROM user_foods WHERE foodid = $1;',
@@ -392,7 +388,6 @@ app.put('/moveFood', async (req, res) => {
     }
 });
 
-// Get distinct food categories from the foods table
 app.get('/getCategories', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -406,7 +401,6 @@ app.get('/getCategories', async (req, res) => {
     }
 });
 
-// Get foods by category (assuming foods table has a "category" column)
 app.get('/getFoodsByCategory', async (req, res) => {
     const { category } = req.query;
     if (!category) {
@@ -424,7 +418,6 @@ app.get('/getFoodsByCategory', async (req, res) => {
     }
 });
 
-// Get all exercises by primary muscle group
 app.get('/getExercisesByPrimaryMuscle', async (req, res) => {
     try {
         const { muscles } = req.query;
@@ -446,7 +439,6 @@ app.get('/getExercisesByPrimaryMuscle', async (req, res) => {
     }
 });
 
-// Get all exercises by names
 app.post('/getExercisesByNames', async (req, res) => {
     const { names } = req.body;
     if (!Array.isArray(names) || names.length === 0) {
@@ -466,7 +458,6 @@ app.post('/getExercisesByNames', async (req, res) => {
     }
 });
 
-// GET detailed info for one exercise (including video_url)
 app.get('/getExerciseDetail', async (req, res) => {
     const { name } = req.query;
     if (!name) {

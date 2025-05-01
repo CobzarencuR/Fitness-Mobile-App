@@ -37,7 +37,6 @@ export default function Header() {
         }
     };
 
-    // Re-fetch photoUri every time the header gains focus.
     useFocusEffect(
         useCallback(() => {
             fetchUserPhoto();

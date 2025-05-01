@@ -35,7 +35,7 @@ const FoodDetailScreen = () => {
     };
 
     const computeConsumedCalories = (): number => {
-        return meals.reduce((sum, m) => sum + m.foods.reduce((s, f) => s + f.calories, 0), 0);
+        return meals.reduce((sum, m) => sum + m.foods.reduce((subT, f) => subT + f.calories, 0), 0);
     };
 
     const handleSave = async () => {
@@ -77,7 +77,6 @@ const FoodDetailScreen = () => {
             return;
         }
 
-        // Proceed to update or add
         if (existsInMeal) {
             await updateFoodInMeal(mealId, updatedFood);
         } else {

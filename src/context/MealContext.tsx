@@ -84,7 +84,6 @@ export const MealProvider = ({ children }: Props) => {
         }
     };
 
-    // after: server does the naming
     const addMeal = async (date?: string) => {
         const currentDate = date || new Date().toISOString().split('T')[0];
         const username = await AsyncStorage.getItem('loggedInUsername');
@@ -105,7 +104,7 @@ export const MealProvider = ({ children }: Props) => {
                 {
                     id: newMeal.mealid,
                     userId: newMeal.user_id,
-                    title: newMeal.name,    // server computed the right "Meal N"
+                    title: newMeal.name,
                     date: newMeal.date,
                     foods: [],
                 },
@@ -114,7 +113,6 @@ export const MealProvider = ({ children }: Props) => {
             console.error('Error adding meal:', err);
         }
     };
-
 
     const deleteMeal = async (mealId: number) => {
         try {
