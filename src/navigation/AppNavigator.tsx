@@ -37,7 +37,6 @@ export type RootTabParamList = {
     Meals: undefined;
     Workouts: undefined;
     Profile: undefined;
-    Chat: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -66,7 +65,6 @@ const BottomTabs = () => {
                 <Tab.Screen name="Meals" component={MealScreen} />
                 <Tab.Screen name="Workouts" component={WorkoutsScreen} />
                 <Tab.Screen name="Profile" component={ProfileScreen} />
-                <Tab.Screen name="Chat" component={ChatListScreen} />
             </Tab.Navigator>
         </>
     );
