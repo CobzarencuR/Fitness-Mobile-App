@@ -13,7 +13,7 @@ export default function Register({ navigation }: any) {
         }
         if (username && email && password) {
             try {
-                const response = await fetch('http://localhost:3000/register', {
+                const response = await fetch('http://10.0.2.2:3000/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

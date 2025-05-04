@@ -18,7 +18,7 @@ const FoodDetailScreen = () => {
         const token = await AsyncStorage.getItem('auth-token');
         if (!token) return 0;
         try {
-            const res = await fetch('http://localhost:3000/getProfile', {
+            const res = await fetch('http://10.0.2.2:3000/getProfile', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',

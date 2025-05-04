@@ -16,6 +16,9 @@ import Header from '../components/Header';
 import { MealProvider } from '../context/MealContext';
 import { UserProvider } from '../context/UserContext';
 import { WorkoutProvider } from '../context/WorkoutContext';
+import ChatListScreen from '../screens/ChatListScreen';
+import ChatRoomScreen from '../screens/ChatRoomScreen';
+import { ChatProvider } from '../context/ChatContext';
 
 export type RootStackParamList = {
     Login: undefined;
@@ -25,6 +28,8 @@ export type RootStackParamList = {
     Profile: undefined;
     MealCategory: { mealId: number };
     FoodDetail: { mealId: number; food: any };
+    ChatList: undefined;
+    ChatRoom: { roomId: number; roomName: string };
 };
 
 export type RootTabParamList = {
@@ -32,6 +37,7 @@ export type RootTabParamList = {
     Meals: undefined;
     Workouts: undefined;
     Profile: undefined;
+    Chat: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -60,6 +66,7 @@ const BottomTabs = () => {
                 <Tab.Screen name="Meals" component={MealScreen} />
                 <Tab.Screen name="Workouts" component={WorkoutsScreen} />
                 <Tab.Screen name="Profile" component={ProfileScreen} />
+                <Tab.Screen name="Chat" component={ChatListScreen} />
             </Tab.Navigator>
         </>
     );
@@ -70,17 +77,21 @@ export default function AppNavigator() {
         <UserProvider>
             <WorkoutProvider>
                 <MealProvider>
-                    <NavigationContainer>
-                        <Stack.Navigator screenOptions={{ headerShown: false }}>
-                            <Stack.Screen name="Login" component={LoginScreen} />
-                            <Stack.Screen name="Register" component={Register} />
-                            <Stack.Screen name="Main" component={BottomTabs} />
-                            <Stack.Screen name="Settings" component={SettingsScreen} />
-                            <Stack.Screen name="Profile" component={ProfileScreen} />
-                            <Stack.Screen name="MealCategory" component={MealCategoryScreen} />
-                            <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
-                        </Stack.Navigator>
-                    </NavigationContainer>
+                    <ChatProvider>
+                        <NavigationContainer>
+                            <Stack.Navigator screenOptions={{ headerShown: false }}>
+                                <Stack.Screen name="Login" component={LoginScreen} />
+                                <Stack.Screen name="Register" component={Register} />
+                                <Stack.Screen name="Main" component={BottomTabs} />
+                                <Stack.Screen name="Settings" component={SettingsScreen} />
+                                <Stack.Screen name="Profile" component={ProfileScreen} />
+                                <Stack.Screen name="MealCategory" component={MealCategoryScreen} />
+                                <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
+                                <Stack.Screen name="ChatList" component={ChatListScreen} />
+                                <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
+                            </Stack.Navigator>
+                        </NavigationContainer>
+                    </ChatProvider>
                 </MealProvider>
             </WorkoutProvider>
         </UserProvider>

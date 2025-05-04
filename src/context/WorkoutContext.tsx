@@ -23,7 +23,7 @@ export const WorkoutContext = createContext<WorkoutContextType>({
     reload: () => { },
 });
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'http://10.0.2.2:3000';
 
 export const WorkoutProvider = ({ children }: { children: ReactNode }) => {
     const [height, setHeight] = useState<number | null>(null);

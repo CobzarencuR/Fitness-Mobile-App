@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const httpModule = require('http');
+const { Server } = require('socket.io');
 const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const port = 3000;
@@ -24,6 +26,70 @@ const pool = new Pool({
 pool.connect()
     .then(() => console.log('Connected to PostgreSQL'))
     .catch(err => console.error('Error connecting to PostgreSQL', err));
+
+const server = httpModule.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: '*',             // or your mobile app’s bundle ID / domain
+        methods: ['GET', 'POST'],
+        allowedHeaders: ['authorization', 'Content-Type'],
+    }
+});
+
+// Get all rooms
+app.get('/chatRooms', async (req, res) => {
+    const { rows } = await pool.query('SELECT id,name FROM chat_rooms');
+    res.json(rows);
+});
+
+// Get last 100 messages for a room
+app.get('/chatRooms/:roomId/messages', async (req, res) => {
+    const { roomId } = req.params;
+    const { rows } = await pool.query(
+        `SELECT
+       m.id,
+       m.text,
+       m.created_at,
+       u.username,
+       u.photouri AS "photoUri"
+     FROM chat_messages m
+     JOIN users u ON u.id=m.user_id
+     WHERE room_id=$1
+     ORDER BY created_at ASC
+     LIMIT 100;`,
+        [roomId]
+    );
+    res.json(rows);
+});
+
+io.on('connection', socket => {
+    // subscribe this socket to room “room_<roomId>”
+    socket.on('joinRoom', roomId => {
+        socket.join(`room_${roomId}`);
+    });
+
+    // when a client posts a new message
+    socket.on('newMessage', async ({ roomId, userId, text }) => {
+        // 1) persist in DB
+        const { rows } = await pool.query(
+            `INSERT INTO chat_messages (room_id, user_id, text)
+       VALUES ($1,$2,$3)
+       RETURNING id, created_at;`,
+            [roomId, userId, text]
+        );
+        const { id, created_at } = rows[0];
+        // 2) look up the sender’s username
+        const u = await pool.query(
+            'SELECT username FROM users WHERE id=$1',
+            [userId]
+        );
+        const username = u.rows[0].username;
+        // 3) broadcast to everyone in that room
+        io.to(`room_${roomId}`).emit('message', {
+            id, roomId, userId, username, text, created_at
+        });
+    });
+});
 
 // Register User API
 app.post('/register', async (req, res) => {
@@ -522,4 +588,4 @@ app.post('/saveWorkoutPlan', async (req, res) => {
     }
 });
 
-app.listen(port, () => console.log('Server running on http://10.0.2.2:3000'));
+server.listen(port, () => console.log('Server running on http://10.0.2.2:3000'));

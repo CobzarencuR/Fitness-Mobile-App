@@ -46,7 +46,7 @@ type Props = { children: ReactNode };
 
 export const MealProvider = ({ children }: Props) => {
     const [meals, setMeals] = useState<Meal[]>([]);
-    const BACKEND = 'http://localhost:3000';
+    const BACKEND = 'http://10.0.2.2:3000';
 
     const loadMeals = async (selectedDate?: string) => {
         const storedUsername = await AsyncStorage.getItem('loggedInUsername');

@@ -15,7 +15,7 @@ const MealCategoryScreen = () => {
     const [searchQueries, setSearchQueries] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
-        fetch('http://localhost:3000/getCategories')
+        fetch('http://10.0.2.2:3000/getCategories')
             .then((response) => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -43,7 +43,7 @@ const MealCategoryScreen = () => {
             setSearchQueries((prev) => ({ ...prev, [category]: '' }));
             // If foods for this category haven't been loaded yet, fetch them.
             if (!foodsByCategory[category]) {
-                fetch(`http://localhost:3000/getFoodsByCategory?category=${category}`)
+                fetch(`http://10.0.2.2:3000/getFoodsByCategory?category=${category}`)
                     .then((response) => {
                         if (!response.ok) {
                             throw new Error('Network response was not ok');

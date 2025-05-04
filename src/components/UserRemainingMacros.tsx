@@ -11,7 +11,7 @@ type Macros = {
     fats: number;
 };
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'http://10.0.2.2:3000';
 
 const UserRemainingMacros = () => {
     const { meals } = useContext(MealContext);

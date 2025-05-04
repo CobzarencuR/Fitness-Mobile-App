@@ -5,7 +5,7 @@ import { UserContext } from '../context/UserContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'http://10.0.2.2:3000';
 
 export default function Header() {
     const { user, setUser } = useContext(UserContext);
