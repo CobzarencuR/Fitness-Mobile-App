@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { View, FlatList, TextInput, Button, Text, KeyboardAvoidingView, StyleSheet } from 'react-native';
+import { View, ScrollView, TextInput, Button, Text, KeyboardAvoidingView, StyleSheet, } from 'react-native';
 import { ChatContext } from '../context/ChatContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -11,45 +11,37 @@ type ChatRoomScreenProps = NativeStackScreenProps<RootStackParamList, 'ChatRoom'
 export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
     const { roomId, roomName } = route.params;
     const { socket } = useContext(ChatContext);
-    const [messages, setMessages] = useState<any[]>([]);
-    const [text, setText] = useState('');
-    const flatRef = useRef<FlatList>(null);
     const { user } = useContext(UserContext);
 
-    // Scroll to bottom as soon as the component first mounts
-    useEffect(() => {
-        if (flatRef.current) {
-            // delay until after layout
-            setTimeout(() => {
-                flatRef.current?.scrollToEnd({ animated: false });
-            }, 0);
-        }
-    }, []);
-
-    // And still scroll whenever new messages arrive
-    useEffect(() => {
-        if (messages.length && flatRef.current) {
-            setTimeout(() => {
-                flatRef.current?.scrollToEnd({ animated: true });
-            }, 0);
-        }
-    }, [messages]);
+    const [messages, setMessages] = useState<any[]>([]);
+    const [text, setText] = useState('');
+    const scrollRef = useRef<ScrollView>(null);
 
     // load history
     useEffect(() => {
         fetch(`http://10.0.2.2:3000/chatRooms/${roomId}/messages`)
             .then(r => r.json())
-            .then(data => setMessages(data));  // triggers the scroll‐effect above
+            .then(data => setMessages(data));
 
         socket.emit('joinRoom', roomId);
-
         socket.on('message', (msg: any) => {
             if (String(msg.roomId) === String(roomId)) {
-                setMessages(m => [...m, msg]);  // also triggers scroll
+                setMessages(prev => [...prev, msg]);
             }
         });
-        return () => void socket.off('message');
+        return () => {
+            socket.off('message');
+        };
     }, [roomId]);
+
+    // scroll to bottom anytime messages change
+    useEffect(() => {
+        if (scrollRef.current) {
+            setTimeout(() => {
+                scrollRef.current?.scrollToEnd({ animated: false });
+            }, 0);
+        }
+    }, [messages]);
 
     const send = async () => {
         const userId = Number(await AsyncStorage.getItem('loggedInUserId'));
@@ -59,24 +51,23 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
     };
 
     return (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-            <FlatList
-                ref={flatRef}
-                data={messages}
-                keyExtractor={m => String(m.id)}
-                contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-start' }}
-                onContentSizeChange={() => {
-                    flatRef.current?.scrollToEnd({ animated: false });
-                }}
-                renderItem={({ item }) => {
+        <KeyboardAvoidingView style={styles.container} behavior="padding">
+            <ScrollView
+                ref={scrollRef}
+                contentContainerStyle={styles.scrollContent}
+            >
+                {messages.map(item => {
                     const isMine = user && item.username === user.username;
                     return (
-                        <View style={isMine
-                            ? styles.myMessageContainer
-                            : styles.otherMessageContainer}>
-                            <View style={isMine
-                                ? styles.myBubble
-                                : styles.otherBubble}>
+                        <View
+                            key={item.id}
+                            style={
+                                isMine
+                                    ? styles.myMessageContainer
+                                    : styles.otherMessageContainer
+                            }
+                        >
+                            <View style={isMine ? styles.myBubble : styles.otherBubble}>
                                 <Text style={{ fontWeight: 'bold' }}>{item.username}</Text>
                                 <Text style={styles.messageText}>{item.text}</Text>
                                 <Text style={styles.timestamp}>
@@ -85,14 +76,14 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
                             </View>
                         </View>
                     );
-                }}
-            />
+                })}
+            </ScrollView>
 
-            <View style={{ flexDirection: 'row', padding: 8 }}>
+            <View style={styles.inputContainer}>
                 <TextInput
                     value={text}
                     onChangeText={setText}
-                    style={{ flex: 1, borderWidth: 1, borderRadius: 5, padding: 8 }}
+                    style={styles.input}
                     placeholder={`Message #${roomName}`}
                 />
                 <Button title="Send" onPress={send} />
@@ -102,7 +93,28 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
 }
 
 const styles = StyleSheet.create({
-    // outer wrapper for each message
+    container: { flex: 1 },
+
+    scrollContent: {
+        paddingVertical: 8,
+    },
+
+    inputContainer: {
+        flexDirection: 'row',
+        padding: 8,
+        borderTopWidth: 1,
+        borderColor: '#ddd',
+        backgroundColor: '#fff',
+    },
+    input: {
+        flex: 1,
+        borderWidth: 1,
+        borderRadius: 5,
+        padding: 8,
+        marginRight: 8,
+    },
+
+    // Message bubbles…
     myMessageContainer: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
@@ -116,27 +128,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
     },
 
-    // the “bubble” itself
     myBubble: {
-        backgroundColor: '#DCF8C6',      // light green like WhatsApp
+        backgroundColor: '#DCF8C6',
         padding: 10,
         borderRadius: 16,
-        borderBottomRightRadius: 0,      // “tail” effect
+        borderBottomRightRadius: 0,
         maxWidth: '75%',
     },
     otherBubble: {
-        backgroundColor: '#FFF',         // white
+        backgroundColor: '#FFF',
         padding: 10,
         borderRadius: 16,
         borderBottomLeftRadius: 0,
         maxWidth: '75%',
     },
 
-    messageText: {
-        fontSize: 16,
-        color: '#000',
-    },
-
+    messageText: { fontSize: 16, color: '#000' },
     timestamp: {
         fontSize: 10,
         color: '#666',
