@@ -8,8 +8,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 const settingsOptions = [
     { name: "Profile", screen: "Profile" },
-    { name: "Notifications", screen: "NotificationsScreen" },
-    { name: "Privacy", screen: "PrivacyScreen" },
+    { name: "Chat", screen: "ChatList" },
+    { name: "Blog", screen: "Blog" },
     { name: "Security", screen: "SecurityScreen" },
     { name: "About", screen: "AboutScreen" },
 ];

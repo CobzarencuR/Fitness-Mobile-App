@@ -84,7 +84,7 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
                     value={text}
                     onChangeText={setText}
                     style={styles.input}
-                    placeholder={`Message #${roomName}`}
+                    placeholder={`Message - ${roomName}`}
                 />
                 <Button title="Send" onPress={send} />
             </View>

@@ -30,9 +30,9 @@ export default function HomeScreen() {
                     activeOpacity={0.7}
                 // onPress={() => navigation.navigate('Settings')}
                 >
-                    <Text style={styles.buttonTitle}>👟 Steps</Text>
+                    <Text style={styles.buttonTitle}>📃 Blog</Text>
                     <Text style={styles.buttonDesc}>
-                        See your daily routes and steps
+                        See new meal recepies and training advice
                     </Text>
                 </TouchableOpacity>
             </View>

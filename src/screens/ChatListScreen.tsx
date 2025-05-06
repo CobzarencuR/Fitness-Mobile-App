@@ -13,26 +13,33 @@ export default function ChatListScreen() {
     useEffect(() => {
         fetch('http://10.0.2.2:3000/chatRooms')
             .then(r => r.json())
-            .then(setRooms);
+            .then(data => {
+                const ordered = data.sort((a: { id: number }, b: { id: number }) => a.id - b.id);
+                setRooms(ordered);
+            });
     }, []);
 
     return (
         <View style={styles.container}>
+            <Text style={styles.title}>Chat Rooms</Text>
             <FlatList
                 data={rooms}
                 keyExtractor={r => String(r.id)}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={styles.item}
-                        onPress={() =>
-                            nav.navigate('ChatRoom', {
-                                roomId: item.id,
-                                roomName: item.name,
-                            })
-                        }
-                    >
-                        <Text style={styles.channelName}># {item.name}</Text>
-                    </TouchableOpacity>
+                renderItem={({ item, index }) => (
+                    <>
+                        <TouchableOpacity
+                            style={styles.item}
+                            onPress={() =>
+                                nav.navigate('ChatRoom', {
+                                    roomId: item.id,
+                                    roomName: item.name,
+                                })
+                            }
+                        >
+                            <Text style={styles.channelName}>{item.name}</Text>
+                        </TouchableOpacity>
+                        {(index === 2 || index === 4 || index === 6) && <View style={styles.separator} />}
+                    </>
                 )}
                 contentContainerStyle={styles.listContent}
             />
@@ -44,8 +51,15 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginTop: 20,
+    },
     listContent: {
-        paddingVertical: 8,
+        flex: 1,
+        justifyContent: 'center',
     },
     item: {
         flexDirection: 'row',
@@ -60,5 +74,11 @@ const styles = StyleSheet.create({
     channelName: {
         fontSize: 16,
         fontWeight: '500',
+    },
+    separator: {
+        height: 1.5,
+        backgroundColor: 'black',
+        marginVertical: 16,
+        marginHorizontal: 12,
     },
 });
