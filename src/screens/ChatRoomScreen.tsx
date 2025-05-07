@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { View, ScrollView, TextInput, Button, Text, KeyboardAvoidingView, StyleSheet, } from 'react-native';
+import { View, ScrollView, TextInput, Button, Text, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { ChatContext } from '../context/ChatContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -17,7 +17,7 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
     const [text, setText] = useState('');
     const scrollRef = useRef<ScrollView>(null);
 
-    // load history
+    // Load history
     useEffect(() => {
         fetch(`http://10.0.2.2:3000/chatRooms/${roomId}/messages`)
             .then(r => r.json())
@@ -34,7 +34,7 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
         };
     }, [roomId]);
 
-    // scroll to bottom anytime messages change
+    // Scroll to bottom anytime messages change
     useEffect(() => {
         if (scrollRef.current) {
             setTimeout(() => {
@@ -50,31 +50,53 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
         setText('');
     };
 
+    // Helper function to format date
+    const formatDate = (dateString: string) => {
+        const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+        return new Date(dateString).toLocaleDateString(undefined, options);
+    };
+
+    // Helper function to check if two dates are on the same day
+    const isSameDay = (date1: string, date2: string) => {
+        const d1 = new Date(date1);
+        const d2 = new Date(date2);
+        return d1.toDateString() === d2.toDateString();
+    };
+
     return (
         <KeyboardAvoidingView style={styles.container} behavior="padding">
             <ScrollView
                 ref={scrollRef}
                 contentContainerStyle={styles.scrollContent}
             >
-                {messages.map(item => {
+                {messages.map((item, index) => {
                     const isMine = user && item.username === user.username;
+                    const showDate =
+                        index === 0 || !isSameDay(item.created_at, messages[index - 1].created_at);
+
                     return (
-                        <View
-                            key={item.id}
-                            style={
-                                isMine
-                                    ? styles.myMessageContainer
-                                    : styles.otherMessageContainer
-                            }
-                        >
-                            <View style={isMine ? styles.myBubble : styles.otherBubble}>
-                                <Text style={{ fontWeight: 'bold' }}>{item.username}</Text>
-                                <Text style={styles.messageText}>{item.text}</Text>
-                                <Text style={styles.timestamp}>
-                                    {new Date(item.created_at).toLocaleTimeString()}
-                                </Text>
+                        <React.Fragment key={item.id}>
+                            {showDate && (
+                                <View style={styles.dateSeparator}>
+                                    <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
+                                </View>
+                            )}
+                            <View
+                                style={
+                                    isMine
+                                        ? styles.myMessageContainer
+                                        : styles.otherMessageContainer
+                                }
+                            >
+                                <View style={isMine ? styles.myBubble : styles.otherBubble}>
+                                    <Text style={{ fontWeight: 'bold' }}>{item.username}</Text>
+                                    <Text style={styles.messageText}>{item.text}</Text>
+                                    <Text style={styles.timestamp}>
+                                        {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Text>
+                                </View>
                             </View>
-                        </View>
+                        </React.Fragment>
                     );
                 })}
             </ScrollView>
@@ -94,11 +116,9 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-
     scrollContent: {
         paddingVertical: 8,
     },
-
     inputContainer: {
         flexDirection: 'row',
         padding: 8,
@@ -113,8 +133,6 @@ const styles = StyleSheet.create({
         padding: 8,
         marginRight: 8,
     },
-
-    // Message bubbles…
     myMessageContainer: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
@@ -127,7 +145,6 @@ const styles = StyleSheet.create({
         marginVertical: 4,
         paddingHorizontal: 8,
     },
-
     myBubble: {
         backgroundColor: '#DCF8C6',
         padding: 10,
@@ -142,12 +159,23 @@ const styles = StyleSheet.create({
         borderBottomLeftRadius: 0,
         maxWidth: '75%',
     },
-
     messageText: { fontSize: 16, color: '#000' },
     timestamp: {
         fontSize: 10,
         color: '#666',
         alignSelf: 'flex-end',
         marginTop: 4,
+    },
+    dateSeparator: {
+        alignItems: 'center',
+        marginVertical: 8,
+    },
+    dateText: {
+        fontSize: 12,
+        color: '#666',
+        backgroundColor: '#EEE',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
     },
 });
