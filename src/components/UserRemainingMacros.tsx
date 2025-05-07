@@ -110,19 +110,17 @@ const UserRemainingMacros = () => {
         <View style={styles.container}>
             <Text style={styles.header}>Remaining Calories</Text>
 
-            {/* 4 labels in a row */}
             <View style={styles.row}>
                 {(['calories', 'protein', 'carbs', 'fats'] as const).map(key => (
                     <View key={key} style={styles.cell}>
                         <Text style={styles.label}>{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
                         <Text style={styles.value}>
-                            {consumed[key].toFixed(key === 'calories' ? 0 : 1)}/{targetMacros[key]}
+                            {Math.round(consumed[key])}/{Math.round(targetMacros[key])}
                         </Text>
                     </View>
                 ))}
             </View>
 
-            {/* progress bars */}
             <View style={styles.row}>
                 {(['calories', 'protein', 'carbs', 'fats'] as const).map(key => (
                     <View key={key} style={styles.cell}>
