@@ -10,6 +10,8 @@
     "LOGIN": "AUTENTIFICARE",
     "REGISTER": "ÎNREGISTRARE",
     "Chats": "Conversații",
+    "Chat Rooms": "Topicuri de conversații",
+    "Message": "Mesaj - {{roomName}}",
     "Home": "Acasă",
     "Meals": "Mese",
     "Workouts": "Antrenamente",

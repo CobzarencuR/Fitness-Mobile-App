@@ -38,7 +38,7 @@ const io = new Server(server, {
 
 // Get all rooms
 app.get('/chatRooms', async (req, res) => {
-    const { rows } = await pool.query('SELECT id,name FROM chat_rooms');
+    const { rows } = await pool.query('SELECT id,name_en,name_ro FROM chat_rooms');
     res.json(rows);
 });
 

@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { UserContext } from '../context/UserContext';
+import { useLocalization } from '../context/LocalizationContext';
 
 type ChatRoomScreenProps = NativeStackScreenProps<RootStackParamList, 'ChatRoom'>;
 
@@ -16,6 +17,7 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
     const [messages, setMessages] = useState<any[]>([]);
     const [text, setText] = useState('');
     const scrollRef = useRef<ScrollView>(null);
+    const { t } = useLocalization();
 
     // Load history
     useEffect(() => {
@@ -106,7 +108,7 @@ export default function ChatRoomScreen({ route }: ChatRoomScreenProps) {
                     value={text}
                     onChangeText={setText}
                     style={styles.input}
-                    placeholder={`Message - ${roomName}`}
+                    placeholder={t('Message', { roomName })}
                 />
                 <Button title="Send" onPress={send} />
             </View>

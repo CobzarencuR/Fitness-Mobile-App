@@ -8,9 +8,9 @@ import { useLocalization } from '../context/LocalizationContext';
 type ChatListNavProp = NativeStackNavigationProp<RootStackParamList, 'ChatList'>;
 
 export default function ChatListScreen() {
-    const [rooms, setRooms] = useState<{ id: number; name: string }[]>([]);
+    const [rooms, setRooms] = useState<{ id: number; name_en: string, name_ro: string }[]>([]);
     const nav = useNavigation<ChatListNavProp>();
-    const { t } = useLocalization();
+    const { t, td } = useLocalization();
 
     useEffect(() => {
         fetch('http://10.0.2.2:3000/chatRooms')
@@ -34,11 +34,11 @@ export default function ChatListScreen() {
                             onPress={() =>
                                 nav.navigate('ChatRoom', {
                                     roomId: item.id,
-                                    roomName: item.name,
+                                    roomName: td(item, 'name'),
                                 })
                             }
                         >
-                            <Text style={styles.channelName}>{item.name}</Text>
+                            <Text style={styles.channelName}>{td(item, 'name')}</Text>
                         </TouchableOpacity>
                         {(index === 2 || index === 4 || index === 6) && <View style={styles.separator} />}
                     </>
