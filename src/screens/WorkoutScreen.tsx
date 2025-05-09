@@ -7,6 +7,7 @@ import { UserContext } from '../context/UserContext';
 import { PlanTemplates, PersonType } from '../components/WorkoutTemplates';
 import { WebView } from 'react-native-webview';
 import type { ExercisePlanItem } from '../components/WorkoutTemplates';
+import { useLocalization } from '../context/LocalizationContext';
 
 const TOTAL_WEEKS = 12;
 const BACKEND_URL = 'http://10.0.2.2:3000';
@@ -117,6 +118,8 @@ export default function WorkoutScreen() {
     const [modalIdx, setModalIdx] = useState<number | null>(null);
     const [swapOptions, setSwapOptions] = useState<ExercisePlanItem[]>([]);
     const [exDetail, setExDetail] = useState<ExercisePlanItem | null>(null);
+
+    const { t } = useLocalization();
 
     const personType = useMemo(() => {
         if (height !== null && weight !== null) {
@@ -263,25 +266,24 @@ export default function WorkoutScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Navigation */}
             <View style={styles.weekNav}>
                 <TouchableOpacity disabled={atStart} onPress={() => setWeekIndex(i => Math.max(0, i - 1))}>
                     <Text style={[styles.arrow, atStart && styles.disabled]}>‹</Text>
                 </TouchableOpacity>
-                <Text style={styles.weekLabel}>Month {monthNum} Week {weekNum}</Text>
+                <Text style={styles.weekLabel}>{t('Month')} {monthNum} {t('Week')} {weekNum}</Text>
                 <TouchableOpacity disabled={atEnd} onPress={() => setWeekIndex(i => Math.min(TOTAL_WEEKS - 1, i + 1))}>
                     <Text style={[styles.arrow, atEnd && styles.disabled]}>›</Text>
                 </TouchableOpacity>
             </View>
 
-            <Text style={styles.header}>{trainingDays}-Day Split</Text>
+            <Text style={styles.header}>{trainingDays} {t('Day Split')}</Text>
 
             <FlatList
                 data={dayLabels}
                 keyExtractor={(_, i) => String(i)}
                 renderItem={({ item, index }) => (
                     <View style={styles.dayBox}>
-                        <Text style={styles.dayLabel}>Day {index + 1}: {item}</Text>
+                        <Text style={styles.dayLabel}>{t('Day')} {index + 1}: {item}</Text>
                         {(currentWeek[index] || []).map((ex, idx) => (
                             <TouchableOpacity
                                 key={ex.name + idx}
@@ -302,10 +304,10 @@ export default function WorkoutScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>{exDetail?.name}</Text>
-                        <Text>Equipment: {exDetail?.equipment}</Text>
-                        <Text>Primary muscle: {exDetail?.primary_muscle_group}</Text>
-                        {exDetail?.secondary_muscle_group && <Text>Secondary muscle: {exDetail.secondary_muscle_group}</Text>}
-                        {exDetail?.tertiary_muscle_group && <Text>Tertiary muscle: {exDetail.tertiary_muscle_group}</Text>}
+                        <Text>{t('Equipment')}: {exDetail?.equipment}</Text>
+                        <Text>{t('Primary muscle')}: {exDetail?.primary_muscle_group}</Text>
+                        {exDetail?.secondary_muscle_group && <Text>{t('Secondary muscle')}: {exDetail.secondary_muscle_group}</Text>}
+                        {exDetail?.tertiary_muscle_group && <Text>{t('Tertiary muscle')}: {exDetail.tertiary_muscle_group}</Text>}
                         {exDetail?.video_url
                             ? <View style={styles.videoBox}>
                                 <WebView
@@ -315,11 +317,11 @@ export default function WorkoutScreen() {
                                 />
                             </View>
                             : <Text style={styles.videoText}>
-                                No video available for this exercise
+                                {t('No video available for this exercise')}
                             </Text>
                         }
                         <Pressable style={styles.closeBtn} onPress={() => setDescVisible(false)}>
-                            <Text style={styles.closeText}>Close</Text>
+                            <Text style={styles.closeText}>{t('Close')}</Text>
                         </Pressable>
                     </View>
                 </View>
@@ -329,7 +331,7 @@ export default function WorkoutScreen() {
             <Modal visible={swapVisible} transparent animationType="slide" onRequestClose={() => setSwapVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Swap “{selectedEx?.name}” for:</Text>
+                        <Text style={styles.modalTitle}>{t('Swap')} “{selectedEx?.name}” {t('swap_for')}:</Text>
                         <FlatList
                             data={swapOptions}
                             keyExtractor={(e, i) => e.name + i}
@@ -340,7 +342,7 @@ export default function WorkoutScreen() {
                             )}
                         />
                         <Pressable style={styles.closeBtn} onPress={() => setSwapVisible(false)}>
-                            <Text style={styles.closeText}>Cancel</Text>
+                            <Text style={styles.closeText}>{t('Cancel')}</Text>
                         </Pressable>
                     </View>
                 </View>

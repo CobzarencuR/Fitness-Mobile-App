@@ -4,17 +4,21 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalization } from '../context/LocalizationContext';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
-const settingsOptions = [
-    { name: "Profile", screen: "Profile" },
-    { name: "Chat", screen: "ChatList" },
-    { name: "Blog", screen: "Blog" },
-    { name: "Security", screen: "SecurityScreen" },
-    { name: "About", screen: "AboutScreen" },
-];
-
 export default function SettingsScreen({ navigation }: Props) {
+    const { t } = useLocalization();
+
+    const settingsOptions = [
+        { name: t("Profile"), screen: "Profile" },
+        { name: t("Chat"), screen: "ChatList" },
+        { name: t("Language"), screen: "Language" },
+        { name: t("Security"), screen: "SecurityScreen" },
+        { name: t("About"), screen: "AboutScreen" },
+    ];
+
     const handleLogout = async () => {
         await AsyncStorage.removeItem('loggedInUsername');
         navigation.navigate('Login' as never);
@@ -22,7 +26,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.title}>{t('Settings')}</Text>
             {settingsOptions.map((option) => (
                 <TouchableOpacity
                     key={option.screen}
@@ -35,7 +39,7 @@ export default function SettingsScreen({ navigation }: Props) {
             ))}
 
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                <Text style={styles.buttonText}>Logout</Text>
+                <Text style={styles.buttonText}>{t('Logout')}</Text>
             </TouchableOpacity>
         </View>
     );

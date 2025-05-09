@@ -5,11 +5,14 @@ import GymMap from '../components/GymMap';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useLocalization } from '../context/LocalizationContext';
 
 type HomeNavProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 
 export default function HomeScreen() {
     const navigation = useNavigation<HomeNavProp>();
+    const { t } = useLocalization();
+
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <UserRemainingMacros />
@@ -19,9 +22,9 @@ export default function HomeScreen() {
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate('ChatList')}
                 >
-                    <Text style={styles.buttonTitle}>💬 Chats</Text>
+                    <Text style={styles.buttonTitle}>💬 {t('Chats')}</Text>
                     <Text style={styles.buttonDesc}>
-                        Communicate with other users
+                        {t("Communicate with other users")}
                     </Text>
                 </TouchableOpacity>
 
@@ -30,9 +33,9 @@ export default function HomeScreen() {
                     activeOpacity={0.7}
                 // onPress={() => navigation.navigate('Settings')}
                 >
-                    <Text style={styles.buttonTitle}>📃 Blog</Text>
+                    <Text style={styles.buttonTitle}>📃 {t('Blog')}</Text>
                     <Text style={styles.buttonDesc}>
-                        See new meal recepies and training advice
+                        {t('See new meal recepies and training advice')}
                     </Text>
                 </TouchableOpacity>
             </View>

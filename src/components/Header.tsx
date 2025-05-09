@@ -4,11 +4,13 @@ import SettingsButton from './SettingsButton';
 import { UserContext } from '../context/UserContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLocalization } from '../context/LocalizationContext';
 
 const BACKEND_URL = 'http://10.0.2.2:3000';
 
 export default function Header() {
     const { user, setUser } = useContext(UserContext);
+    const { t } = useLocalization();
 
     const fetchUserPhoto = async () => {
         try {
@@ -49,7 +51,7 @@ export default function Header() {
                 {user && user.photoUri ? (
                     <Image source={{ uri: user.photoUri }} style={styles.photo} />
                 ) : (
-                    <Text style={styles.photoPlaceholder}>Add Photo</Text>
+                    <Text style={styles.photoPlaceholder}>{t('Add Photo')}</Text>
                 )}
             </View>
             <Text style={styles.headerText}>MyFitnessApp</Text>

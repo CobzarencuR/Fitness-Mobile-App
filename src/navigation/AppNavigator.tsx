@@ -19,6 +19,9 @@ import { WorkoutProvider } from '../context/WorkoutContext';
 import ChatListScreen from '../screens/ChatListScreen';
 import ChatRoomScreen from '../screens/ChatRoomScreen';
 import { ChatProvider } from '../context/ChatContext';
+import LanguageScreen from '../screens/LanguageScreen';
+
+import { LocalizationProvider, useLocalization } from '../context/LocalizationContext';
 
 export type RootStackParamList = {
     Login: undefined;
@@ -30,6 +33,7 @@ export type RootStackParamList = {
     FoodDetail: { mealId: number; food: any };
     ChatList: undefined;
     ChatRoom: { roomId: number; roomName: string };
+    Language: undefined;
 };
 
 export type RootTabParamList = {
@@ -43,6 +47,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const BottomTabs = () => {
+    const { t } = useLocalization();
+
     return (
         <>
             <Header />
@@ -51,6 +57,7 @@ const BottomTabs = () => {
                     headerShown: false,
                     tabBarIcon: () => null,
                     tabBarLabelStyle: {
+                        flexDirection: 'row',
                         fontSize: 18,
                         fontWeight: 'bold',
                         textAlign: 'center',
@@ -61,10 +68,10 @@ const BottomTabs = () => {
                     tabBarStyle: { display: 'flex' },
                 }}
             >
-                <Tab.Screen name="Home" component={HomeScreen} />
-                <Tab.Screen name="Meals" component={MealScreen} />
-                <Tab.Screen name="Workouts" component={WorkoutsScreen} />
-                <Tab.Screen name="Profile" component={ProfileScreen} />
+                <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('Home') }} />
+                <Tab.Screen name="Meals" component={MealScreen} options={{ tabBarLabel: t('Meals') }} />
+                <Tab.Screen name="Workouts" component={WorkoutsScreen} options={{ tabBarLabel: t('Workouts') }} />
+                <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('Profile') }} />
             </Tab.Navigator>
         </>
     );
@@ -72,26 +79,30 @@ const BottomTabs = () => {
 
 export default function AppNavigator() {
     return (
-        <UserProvider>
-            <WorkoutProvider>
-                <MealProvider>
-                    <ChatProvider>
-                        <NavigationContainer>
-                            <Stack.Navigator screenOptions={{ headerShown: false }}>
-                                <Stack.Screen name="Login" component={LoginScreen} />
-                                <Stack.Screen name="Register" component={Register} />
-                                <Stack.Screen name="Main" component={BottomTabs} />
-                                <Stack.Screen name="Settings" component={SettingsScreen} />
-                                <Stack.Screen name="Profile" component={ProfileScreen} />
-                                <Stack.Screen name="MealCategory" component={MealCategoryScreen} />
-                                <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
-                                <Stack.Screen name="ChatList" component={ChatListScreen} />
-                                <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
-                            </Stack.Navigator>
-                        </NavigationContainer>
-                    </ChatProvider>
-                </MealProvider>
-            </WorkoutProvider>
-        </UserProvider>
+        <LocalizationProvider>
+
+            <UserProvider>
+                <WorkoutProvider>
+                    <MealProvider>
+                        <ChatProvider>
+                            <NavigationContainer>
+                                <Stack.Navigator screenOptions={{ headerShown: false }}>
+                                    <Stack.Screen name="Login" component={LoginScreen} />
+                                    <Stack.Screen name="Register" component={Register} />
+                                    <Stack.Screen name="Main" component={BottomTabs} />
+                                    <Stack.Screen name="Settings" component={SettingsScreen} />
+                                    <Stack.Screen name="Profile" component={ProfileScreen} />
+                                    <Stack.Screen name="MealCategory" component={MealCategoryScreen} />
+                                    <Stack.Screen name="FoodDetail" component={FoodDetailScreen} />
+                                    <Stack.Screen name="ChatList" component={ChatListScreen} />
+                                    <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
+                                    <Stack.Screen name="Language" component={LanguageScreen} />
+                                </Stack.Navigator>
+                            </NavigationContainer>
+                        </ChatProvider>
+                    </MealProvider>
+                </WorkoutProvider>
+            </UserProvider>
+        </LocalizationProvider>
     );
 }

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MealContext, Meal } from '../context/MealContext';
+import { useLocalization } from '../context/LocalizationContext';
 
 type Macros = {
     calories: number;
@@ -17,6 +18,7 @@ const UserRemainingMacros = () => {
     const { meals } = useContext(MealContext);
     const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
     const [loading, setLoading] = useState(true);
+    const { t } = useLocalization();
 
     const fetchUserTargetMacros = async () => {
         setLoading(true);
@@ -108,12 +110,12 @@ const UserRemainingMacros = () => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.header}>Remaining Calories</Text>
+            <Text style={styles.header}>{t("Remaining Calories")}</Text>
 
             <View style={styles.row}>
                 {(['calories', 'protein', 'carbs', 'fats'] as const).map(key => (
                     <View key={key} style={styles.cell}>
-                        <Text style={styles.label}>{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
+                        <Text style={styles.label}>{t(key)}</Text>
                         <Text style={styles.value}>
                             {Math.round(consumed[key])}/{Math.round(targetMacros[key])}
                         </Text>

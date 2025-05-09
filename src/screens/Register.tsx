@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { useLocalization } from '../context/LocalizationContext';
 
 export default function Register({ navigation }: any) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [email, setEmail] = useState('');
+    const { t } = useLocalization();
 
     const registerUser = async () => {
         if (!username || !email || !password) {
@@ -44,28 +46,28 @@ export default function Register({ navigation }: any) {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.header}>Register</Text>
+            <Text style={styles.header}>{t('Register')}</Text>
             <TextInput
                 style={styles.input}
-                placeholder="Username"
+                placeholder={t('Username')}
                 value={username}
                 onChangeText={setUsername}
             />
             <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder={t('Email')}
                 value={email}
                 onChangeText={setEmail}
             />
             <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder={t('Password')}
                 value={password}
                 secureTextEntry
                 onChangeText={setPassword}
             />
             <TouchableOpacity style={styles.button} onPress={registerUser}>
-                <Text style={styles.buttonText}>Register</Text>
+                <Text style={styles.buttonText}>{t('Register')}</Text>
             </TouchableOpacity>
         </View>
     );

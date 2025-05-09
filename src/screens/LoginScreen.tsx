@@ -3,12 +3,14 @@ import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'reac
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalization } from '../context/LocalizationContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export default function LoginScreen({ navigation }: Props) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const { t } = useLocalization();
 
     const loginUser = async () => {
         if (username && password) {
@@ -40,25 +42,25 @@ export default function LoginScreen({ navigation }: Props) {
     };
     return (
         <View style={styles.container}>
-            <Text style={styles.text}>Login</Text>
+            <Text style={styles.text}>{t('Login')}</Text>
             <TextInput
                 style={styles.input}
-                placeholder="Username"
+                placeholder={t("Username")}
                 value={username}
                 onChangeText={setUsername}
             />
             <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder={t("Password")}
                 value={password}
                 secureTextEntry
                 onChangeText={setPassword}
             />
             <TouchableOpacity style={styles.button} onPress={loginUser}>
-                <Text style={styles.buttonText}>LOGIN</Text>
+                <Text style={styles.buttonText}>{t('LOGIN')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.buttonText}>REGISTER</Text>
+                <Text style={styles.buttonText}>{t('REGISTER')}</Text>
             </TouchableOpacity>
         </View>
     );

@@ -1,0 +1,12 @@
+{
+    "English": "English",
+    "Română": "Romanian",
+    "Login": "Login",
+    "Chats": "Chats",
+    "calories": "Calories",
+    "carbs": "Carbs",
+    "protein": "Proteins",
+    "fats": "Fats",
+    "remaining_calories_message": "You only have {{remaining}} calories remaining. Remove some foods or reduce grams.",
+    "Search in": "Search in {{category}}"
+}

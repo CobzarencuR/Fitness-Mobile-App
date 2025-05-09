@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { MealContext, Food } from '../context/MealContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalization } from '../context/LocalizationContext';
 
 type RouteParams = { mealId: number; food: Food };
 
@@ -11,8 +12,8 @@ const FoodDetailScreen = () => {
     const route = useRoute();
     const { mealId, food } = route.params as RouteParams;
     const { meals, addFoodToMeal, updateFoodInMeal } = useContext(MealContext);
-
     const [grams, setGrams] = useState(food.grams.toString());
+    const { t } = useLocalization();
 
     const fetchTargetCalories = async (): Promise<number> => {
         const token = await AsyncStorage.getItem('auth-token');
@@ -41,7 +42,7 @@ const FoodDetailScreen = () => {
     const handleSave = async () => {
         const newGrams = parseFloat(grams);
         if (isNaN(newGrams) || newGrams <= 0) {
-            Alert.alert('Invalid input', 'Please enter a valid number for grams.');
+            Alert.alert(t('Invalid input'), t('Please enter a valid number for grams.'));
             return;
         }
 
@@ -71,8 +72,8 @@ const FoodDetailScreen = () => {
         if (newTotal > targetCalories) {
             const remaining = targetCalories - consumedTotal;
             Alert.alert(
-                'Not enough calories',
-                `You only have ${remaining} calories remaining. Remove some foods or reduce grams.`
+                t('Not enough calories'),
+                t('remaining_calories_message', { remaining })
             );
             return;
         }
@@ -88,10 +89,10 @@ const FoodDetailScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.header}>Food Details</Text>
-            <Text style={styles.label}>Name: {food.foodname}</Text>
-            <Text style={styles.label}>Default grams: {food.grams}g</Text>
-            <Text style={styles.label}>Enter new grams:</Text>
+            <Text style={styles.header}>{t('Food Details')}</Text>
+            <Text style={styles.label}>{t('Name')}: {food.foodname}</Text>
+            <Text style={styles.label}>{t('Default grams')}: {food.grams}g</Text>
+            <Text style={styles.label}>{t('Enter new grams')}:</Text>
             <TextInput
                 style={styles.input}
                 value={grams}
@@ -99,15 +100,15 @@ const FoodDetailScreen = () => {
                 keyboardType="numeric"
             />
             <Text style={styles.details}>
-                Calories: {Math.round(food.calories * (parseFloat(grams) / food.grams))} kcal
+                {t('Calories')}: {Math.round(food.calories * (parseFloat(grams) / food.grams))} kcal
             </Text>
             <Text style={styles.details}>
-                Protein: {(food.protein * (parseFloat(grams) / food.grams)).toFixed(1)}g | Carbs:{' '}
-                {(food.carbs * (parseFloat(grams) / food.grams)).toFixed(1)}g | Fats:{' '}
+                {t('Protein')}: {(food.protein * (parseFloat(grams) / food.grams)).toFixed(1)}g | {t('Carbs')}:{' '}
+                {(food.carbs * (parseFloat(grams) / food.grams)).toFixed(1)}g | {t('Fats')}:{' '}
                 {(food.fats * (parseFloat(grams) / food.grams)).toFixed(1)}g
             </Text>
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.saveButtonText}>{t('Save')}</Text>
             </TouchableOpacity>
         </View>
     );

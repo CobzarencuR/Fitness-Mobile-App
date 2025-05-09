@@ -1,12 +1,12 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
-import { MealContext, Meal } from '../context/MealContext';
+import { MealContext } from '../context/MealContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import UserRemainingMacros from '../components/UserRemainingMacros';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useLocalization } from '../context/LocalizationContext';
 
 type MealScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MealCategory'>;
 
@@ -19,8 +19,8 @@ const MealScreen = () => {
     const [moveModalVisible, setMoveModalVisible] = useState(false);
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [selectedMealId, setSelectedMealId] = useState<number | null>(null);
-
     const formattedDate = selectedDate.toISOString().split('T')[0];
+    const { t } = useLocalization();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -33,11 +33,11 @@ const MealScreen = () => {
 
     const handleDeleteMeal = (mealId: number) => {
         Alert.alert(
-            'Delete Meal',
-            'Are you sure you want to delete this meal?',
+            t('Delete Meal'),
+            t('Are you sure you want to delete this meal?'),
             [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', onPress: () => deleteMeal(mealId), style: 'destructive' },
+                { text: t('Cancel'), style: 'cancel' },
+                { text: t('Delete'), onPress: () => deleteMeal(mealId), style: 'destructive' },
             ]
         );
     };
@@ -72,7 +72,7 @@ const MealScreen = () => {
         <>
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.datePickerRow}>
-                    <Text style={styles.dateLabel}>Selected Date:</Text>
+                    <Text style={styles.dateLabel}>{t('Selected Date')}:</Text>
                     <TouchableOpacity onPress={() => setShowDatePicker(true)}>
                         <Text style={styles.dateText}>{formattedDate}</Text>
                     </TouchableOpacity>
@@ -92,7 +92,7 @@ const MealScreen = () => {
                 <UserRemainingMacros />
 
                 <TouchableOpacity style={styles.addMealButton} onPress={handleAddMeal}>
-                    <Text style={styles.addMealText}>Add Meal</Text>
+                    <Text style={styles.addMealText}>{t('Add Meal')}</Text>
                 </TouchableOpacity>
 
                 {userMeals.map((meal) => {
@@ -114,7 +114,7 @@ const MealScreen = () => {
                                 </TouchableOpacity>
                             </View>
                             {meal.foods.length === 0 ? (
-                                <Text style={styles.noFoodsText}>No foods added</Text>
+                                <Text style={styles.noFoodsText}>{t('No foods added')}</Text>
                             ) : (
                                 meal.foods.map((food) => (
                                     <TouchableOpacity
@@ -141,7 +141,7 @@ const MealScreen = () => {
                                     navigation.navigate('MealCategory', { mealId: meal.id })
                                 }
                             >
-                                <Text style={styles.addFoodText}>Add Food</Text>
+                                <Text style={styles.addFoodText}>{t('Add Food')}</Text>
                             </TouchableOpacity>
                         </View>
                     );
@@ -165,7 +165,7 @@ const MealScreen = () => {
                                 setOptionModalVisible(false);
                             }}
                         >
-                            <Text style={styles.modalOptionText}>Delete</Text>
+                            <Text style={styles.modalOptionText}>{t('Delete')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.modalOption}
@@ -174,13 +174,13 @@ const MealScreen = () => {
                                 setMoveModalVisible(true);
                             }}
                         >
-                            <Text style={styles.modalOptionText}>Move</Text>
+                            <Text style={styles.modalOptionText}>{t('Move')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.modalOption}
                             onPress={() => setOptionModalVisible(false)}
                         >
-                            <Text style={styles.modalOptionText}>Cancel</Text>
+                            <Text style={styles.modalOptionText}>{t('Cancel')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -212,7 +212,7 @@ const MealScreen = () => {
                             style={styles.modalOption}
                             onPress={() => setMoveModalVisible(false)}
                         >
-                            <Text style={styles.modalOptionText}>Cancel</Text>
+                            <Text style={styles.modalOptionText}>{t('Cancel')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

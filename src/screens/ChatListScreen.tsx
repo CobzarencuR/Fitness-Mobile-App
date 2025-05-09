@@ -3,12 +3,14 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { View, FlatList, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { useLocalization } from '../context/LocalizationContext';
 
 type ChatListNavProp = NativeStackNavigationProp<RootStackParamList, 'ChatList'>;
 
 export default function ChatListScreen() {
     const [rooms, setRooms] = useState<{ id: number; name: string }[]>([]);
     const nav = useNavigation<ChatListNavProp>();
+    const { t } = useLocalization();
 
     useEffect(() => {
         fetch('http://10.0.2.2:3000/chatRooms')
@@ -21,7 +23,7 @@ export default function ChatListScreen() {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Chat Rooms</Text>
+            <Text style={styles.title}>{t('Chat Rooms')}</Text>
             <FlatList
                 data={rooms}
                 keyExtractor={r => String(r.id)}

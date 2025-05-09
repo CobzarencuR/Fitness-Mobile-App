@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useLocalization } from '../context/LocalizationContext';
 
 const MealCategoryScreen = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -13,6 +14,7 @@ const MealCategoryScreen = () => {
     const [foodsByCategory, setFoodsByCategory] = useState<{ [key: string]: any[] }>({});
     const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({});
     const [searchQueries, setSearchQueries] = useState<{ [key: string]: string }>({});
+    const { t } = useLocalization();
 
     useEffect(() => {
         fetch('http://10.0.2.2:3000/getCategories')
@@ -90,7 +92,7 @@ const MealCategoryScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.header}>Select a Food Category</Text>
+            <Text style={styles.header}>{t('Select a Food Category')}</Text>
             {categoriesWithFilteredFoods.map(({ category, filteredFoods }) => (
                 <View key={category} style={styles.categoryContainer}>
                     <TouchableOpacity
@@ -103,7 +105,7 @@ const MealCategoryScreen = () => {
                         <View style={styles.dropdownContainer}>
                             <TextInput
                                 style={styles.searchBar}
-                                placeholder={`Search in ${category}...`}
+                                placeholder={t('Search in', { category })}
                                 value={searchQueries[category] || ''}
                                 onChangeText={(text) =>
                                     setSearchQueries((prev) => ({ ...prev, [category]: text }))
@@ -128,7 +130,7 @@ const MealCategoryScreen = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 16, backgroundColor: '#fff' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+    header: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     categoryContainer: { marginBottom: 16 },
     categoryButton: {
         backgroundColor: '#007BFF',
