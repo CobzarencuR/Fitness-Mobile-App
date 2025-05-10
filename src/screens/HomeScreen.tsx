@@ -1,11 +1,12 @@
 import React from 'react';
-import { ScrollView, View, StyleSheet, Button, Text, TouchableOpacity } from 'react-native';
+import { ScrollView, View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import UserRemainingMacros from '../components/UserRemainingMacros';
 import GymMap from '../components/GymMap';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useLocalization } from '../context/LocalizationContext';
+import WeightGraph from '../components/WeightGraph';
 
 type HomeNavProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 
@@ -39,6 +40,7 @@ export default function HomeScreen() {
                     </Text>
                 </TouchableOpacity>
             </View>
+            <WeightGraph />
             <GymMap />
         </ScrollView>
     );

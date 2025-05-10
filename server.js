@@ -216,6 +216,18 @@ app.post('/updateProfile', async (req, res) => {
             [height, weight, sex, dob, age, activityLevel, objective, experience, trainingDays, calories, protein, carbs, fats, photoUri, username]
         );
 
+        const uRes = await pool.query(
+            'SELECT id FROM users WHERE username = $1;',
+            [username]
+        );
+        const userId = uRes.rows[0].id;
+
+        await pool.query(
+            `INSERT INTO weight_history (user_id, weight)
+                       VALUES ($1, $2);`,
+            [userId, weight]
+        );
+
         if (result.rowCount > 0) {
             res.json({ message: 'Profile updated successfully' });
         } else {
@@ -224,6 +236,36 @@ app.post('/updateProfile', async (req, res) => {
     } catch (error) {
         console.error('Error updating profile in PostgreSQL:', error);
         res.status(500).json({ message: 'Error updating profile' });
+    }
+});
+
+app.get('/getWeightHistory', async (req, res) => {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ error: 'username is required' });
+
+    try {
+        // look up the user_id
+        const uRes = await pool.query(
+            'SELECT id FROM users WHERE username = $1;',
+            [username]
+        );
+        if (uRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const userId = uRes.rows[0].id;
+
+        // fetch their history
+        const hRes = await pool.query(
+            `SELECT recorded_at AS date, weight
+           FROM weight_history
+          WHERE user_id = $1
+          ORDER BY recorded_at ASC;`,
+            [userId]
+        );
+        res.json(hRes.rows);
+    } catch (err) {
+        console.error('Error fetching weight history:', err);
+        res.status(500).json({ error: 'Database error' });
     }
 });
 
