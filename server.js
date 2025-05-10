@@ -253,7 +253,16 @@ app.get('/getUserMeals', async (req, res) => {
         const withFoods = await Promise.all(
             mRes.rows.map(async (meal) => {
                 const fRes = await pool.query(
-                    'SELECT * FROM user_foods WHERE mealid = $1 ORDER BY foodid ASC;',
+                    `SELECT
+                   uf.*,
+                   f.foodname_ro,
+                   f.category_ro
+                 FROM user_foods uf
+                   LEFT JOIN foods f
+                     ON uf.foodname = f.foodname
+                    AND uf.category = f.category
+                 WHERE uf.mealid = $1
+                 ORDER BY uf.foodid ASC;`,
                     [meal.mealid]
                 );
                 return { ...meal, foods: fRes.rows };
@@ -262,6 +271,39 @@ app.get('/getUserMeals', async (req, res) => {
         res.json(withFoods);
     } catch (err) {
         console.error('Error fetching user meals:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.get('/getCategories', async (req, res) => {
+    try {
+        const result = await pool.query(`
+      SELECT DISTINCT category, category_ro FROM foods;
+    `);
+        const categories = result.rows.map(row => ({
+            category: row.category,
+            category_ro: row.category_ro,
+        }));
+        res.json(categories);
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.get('/getFoodsByCategory', async (req, res) => {
+    const { category } = req.query;
+    if (!category) {
+        return res.status(400).json({ error: 'Category is required' });
+    }
+    try {
+        const result = await pool.query(
+            'SELECT * FROM foods WHERE category = $1',
+            [category]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching foods:', error);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -450,36 +492,6 @@ app.put('/moveFood', async (req, res) => {
         }
     } catch (err) {
         console.error('Error moving food:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-app.get('/getCategories', async (req, res) => {
-    try {
-        const result = await pool.query(`
-      SELECT DISTINCT category FROM foods;
-    `);
-        const categories = result.rows.map(row => row.category);
-        res.json(categories);
-    } catch (error) {
-        console.error('Error fetching categories:', error);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-app.get('/getFoodsByCategory', async (req, res) => {
-    const { category } = req.query;
-    if (!category) {
-        return res.status(400).json({ error: 'Category is required' });
-    }
-    try {
-        const result = await pool.query(
-            'SELECT * FROM foods WHERE category = $1',
-            [category]
-        );
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching foods:', error);
         res.status(500).json({ error: 'Database error' });
     }
 });

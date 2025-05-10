@@ -4,7 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type Food = {
     id: number;
     category: string;
+    category_ro?: string;
     foodname: string;
+    foodname_ro?: string;
     grams: number;
     calories: number;
     protein: number;
@@ -70,7 +72,9 @@ export const MealProvider = ({ children }: Props) => {
                 foods: m.foods.map((f: any) => ({
                     id: f.foodid,
                     category: f.category,
+                    category_ro: f.category_ro,
                     foodname: f.foodname,
+                    foodname_ro: f.foodname_ro,
                     grams: f.grams,
                     calories: f.calories,
                     protein: f.protein,

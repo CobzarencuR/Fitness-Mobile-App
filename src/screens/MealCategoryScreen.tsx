@@ -5,16 +5,18 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useLocalization } from '../context/LocalizationContext';
 
+type Category = { category: string; category_ro: string }
+
 const MealCategoryScreen = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute();
     const { mealId } = route.params as { mealId: number };
-    const [categories, setCategories] = useState<string[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [loadingCategories, setLoadingCategories] = useState<boolean>(true);
     const [foodsByCategory, setFoodsByCategory] = useState<{ [key: string]: any[] }>({});
     const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({});
     const [searchQueries, setSearchQueries] = useState<{ [key: string]: string }>({});
-    const { t } = useLocalization();
+    const { t, td } = useLocalization();
 
     useEffect(() => {
         fetch('http://10.0.2.2:3000/getCategories')
@@ -26,7 +28,13 @@ const MealCategoryScreen = () => {
             })
             .then((data) => {
                 // array of strings ["Meat", "Fruit", "Vegetable", "Grain"]
-                setCategories(data);
+                // setCategories(data);
+                const cats = data.map((item: any) =>
+                    typeof item === 'string'
+                        ? { category: item, category_ro: item }
+                        : item
+                );
+                setCategories(cats);
                 setLoadingCategories(false);
             })
             .catch((error) => {
@@ -64,13 +72,15 @@ const MealCategoryScreen = () => {
     };
 
     // Precompute an array with filtered foods for each category.
-    const categoriesWithFilteredFoods = categories.map((category) => {
-        const searchQuery = searchQueries[category] || '';
-        const foodsForCat = foodsByCategory[category] || [];
-        const filteredFoods = foodsForCat.filter((food) =>
-            (food.foodname ? food.foodname.toLowerCase() : '').includes(searchQuery.toLowerCase())
-        );
-        return { category, filteredFoods };
+    const categoriesWithFilteredFoods = categories.map((categoryObj) => {
+        const key = categoryObj.category;
+        const searchQuery = searchQueries[key] || '';
+        const foodsForCat = foodsByCategory[key] || [];
+        const filteredFoods = foodsForCat.filter((food) => {
+            const name = td(food, 'foodname') || '';
+            return name.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+        return { categoryObj, filteredFoods };
     });
 
     const renderFoodItem = ({ item }: { item: any }) => (
@@ -78,7 +88,7 @@ const MealCategoryScreen = () => {
             style={styles.foodItem}
             onPress={() => navigation.navigate('FoodDetail', { mealId, food: item })}
         >
-            <Text style={styles.foodText}>{item.foodname || item.name || 'Unnamed Food'}</Text>
+            <Text style={styles.foodText}>{td(item, 'foodname') || t('Unnamed Food')}</Text>
         </TouchableOpacity>
     );
 
@@ -93,22 +103,22 @@ const MealCategoryScreen = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.header}>{t('Select a Food Category')}</Text>
-            {categoriesWithFilteredFoods.map(({ category, filteredFoods }) => (
-                <View key={category} style={styles.categoryContainer}>
+            {categoriesWithFilteredFoods.map(({ categoryObj, filteredFoods }) => (
+                <View key={categoryObj.category} style={styles.categoryContainer}>
                     <TouchableOpacity
                         style={styles.categoryButton}
-                        onPress={() => toggleCategory(category)}
+                        onPress={() => toggleCategory(categoryObj.category)}
                     >
-                        <Text style={styles.categoryText}>{category}</Text>
+                        <Text style={styles.categoryText}>{td(categoryObj, 'category')}</Text>
                     </TouchableOpacity>
-                    {expandedCategories[category] && (
+                    {expandedCategories[categoryObj.category] && (
                         <View style={styles.dropdownContainer}>
                             <TextInput
                                 style={styles.searchBar}
-                                placeholder={t('Search in', { category })}
-                                value={searchQueries[category] || ''}
+                                placeholder={t('Search in', { category: td(categoryObj, 'category'), })}
+                                value={searchQueries[categoryObj.category] || ''}
                                 onChangeText={(text) =>
-                                    setSearchQueries((prev) => ({ ...prev, [category]: text }))
+                                    setSearchQueries((prev) => ({ ...prev, [categoryObj.category]: text }))
                                 }
                             />
                             <FlatList

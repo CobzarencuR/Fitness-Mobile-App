@@ -13,7 +13,7 @@ const FoodDetailScreen = () => {
     const { mealId, food } = route.params as RouteParams;
     const { meals, addFoodToMeal, updateFoodInMeal } = useContext(MealContext);
     const [grams, setGrams] = useState(food.grams.toString());
-    const { t } = useLocalization();
+    const { t, td } = useLocalization();
 
     const fetchTargetCalories = async (): Promise<number> => {
         const token = await AsyncStorage.getItem('auth-token');
@@ -90,7 +90,7 @@ const FoodDetailScreen = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.header}>{t('Food Details')}</Text>
-            <Text style={styles.label}>{t('Name')}: {food.foodname}</Text>
+            <Text style={styles.label}>{t('Name')}: {td(food, 'foodname')}</Text>
             <Text style={styles.label}>{t('Default grams')}: {food.grams}g</Text>
             <Text style={styles.label}>{t('Enter new grams')}:</Text>
             <TextInput

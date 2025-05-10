@@ -20,7 +20,7 @@ const MealScreen = () => {
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [selectedMealId, setSelectedMealId] = useState<number | null>(null);
     const formattedDate = selectedDate.toISOString().split('T')[0];
-    const { t } = useLocalization();
+    const { t, td } = useLocalization();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -95,13 +95,13 @@ const MealScreen = () => {
                     <Text style={styles.addMealText}>{t('Add Meal')}</Text>
                 </TouchableOpacity>
 
-                {userMeals.map((meal) => {
+                {userMeals.map((meal, index) => {
                     const totals = computeMealTotals(meal.foods);
                     return (
                         <View key={meal.id} style={styles.mealBox}>
                             <View style={styles.mealHeader}>
                                 <Text style={styles.mealTitle}>
-                                    {meal.title}{'\n'}
+                                    {`${t('Meal')} ${index + 1}`}{'\n'}
                                     <Text style={styles.mealTotals}>
                                         {totals.calories} kcal | P: {totals.protein.toFixed(1)}g C: {totals.carbs.toFixed(1)}g F: {totals.fats.toFixed(1)}g
                                     </Text>
@@ -125,7 +125,7 @@ const MealScreen = () => {
                                         }
                                         onLongPress={() => handleFoodLongPress(meal.id, food)}
                                     >
-                                        <Text style={styles.foodName}>{food.foodname}</Text>
+                                        <Text style={styles.foodName}>{td(food, 'foodname')}</Text>
                                         <Text style={styles.foodDetails}>
                                             {food.grams}g | {food.calories} kcal
                                         </Text>
