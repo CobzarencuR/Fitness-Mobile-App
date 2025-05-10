@@ -119,7 +119,7 @@ export default function WorkoutScreen() {
     const [swapOptions, setSwapOptions] = useState<ExercisePlanItem[]>([]);
     const [exDetail, setExDetail] = useState<ExercisePlanItem | null>(null);
 
-    const { t } = useLocalization();
+    const { t, td } = useLocalization();
 
     const personType = useMemo(() => {
         if (height !== null && weight !== null) {
@@ -283,7 +283,7 @@ export default function WorkoutScreen() {
                 keyExtractor={(_, i) => String(i)}
                 renderItem={({ item, index }) => (
                     <View style={styles.dayBox}>
-                        <Text style={styles.dayLabel}>{t('Day')} {index + 1}: {item}</Text>
+                        <Text style={styles.dayLabel}>{t('Day')} {index + 1}: {t(item)}</Text>
                         {(currentWeek[index] || []).map((ex, idx) => (
                             <TouchableOpacity
                                 key={ex.name + idx}
@@ -291,7 +291,7 @@ export default function WorkoutScreen() {
                                 onPress={() => { setSelectedEx(ex); setDescVisible(true); }}
                                 onLongPress={() => handleLongPress(ex, index, idx)}
                             >
-                                <Text style={styles.exerciseName}>{ex.name}</Text>
+                                <Text style={styles.exerciseName}>{td(ex, 'name')}</Text>
                                 <Text style={styles.exerciseDetails}>{ex.sets}×{ex.reps} @ {ex.weight}</Text>
                             </TouchableOpacity>
                         ))}
@@ -303,11 +303,11 @@ export default function WorkoutScreen() {
             <Modal visible={descVisible} transparent animationType="slide" onRequestClose={() => setDescVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{exDetail?.name}</Text>
-                        <Text>{t('Equipment')}: {exDetail?.equipment}</Text>
-                        <Text>{t('Primary muscle')}: {exDetail?.primary_muscle_group}</Text>
-                        {exDetail?.secondary_muscle_group && <Text>{t('Secondary muscle')}: {exDetail.secondary_muscle_group}</Text>}
-                        {exDetail?.tertiary_muscle_group && <Text>{t('Tertiary muscle')}: {exDetail.tertiary_muscle_group}</Text>}
+                        <Text style={styles.modalTitle}>{exDetail ? td(exDetail, 'name') : ''}</Text>
+                        <Text>{t('Equipment')}: {exDetail ? td(exDetail, 'equipment') : ''}</Text>
+                        <Text>{t('Primary muscle')}: {exDetail ? td(exDetail, 'primary_muscle_group') : ''}</Text>
+                        {exDetail?.secondary_muscle_group && <Text>{t('Secondary muscle')}: {exDetail ? td(exDetail, 'secondary_muscle_group') : ''}</Text>}
+                        {exDetail?.tertiary_muscle_group && <Text>{t('Tertiary muscle')}: {exDetail ? td(exDetail, 'tertiary_muscle_group') : ''}</Text>}
                         {exDetail?.video_url
                             ? <View style={styles.videoBox}>
                                 <WebView
@@ -331,13 +331,13 @@ export default function WorkoutScreen() {
             <Modal visible={swapVisible} transparent animationType="slide" onRequestClose={() => setSwapVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{t('Swap')} “{selectedEx?.name}” {t('swap_for')}:</Text>
+                        <Text style={styles.modalTitle}>{t('Swap')} “{selectedEx ? td(selectedEx, 'name') : ''}” {t('swap_for')}:</Text>
                         <FlatList
                             data={swapOptions}
                             keyExtractor={(e, i) => e.name + i}
                             renderItem={({ item }) => (
                                 <Pressable style={styles.swapOption} onPress={() => applySwap(item)}>
-                                    <Text>{item.name}</Text>
+                                    <Text>{td(item, 'name')}</Text>
                                 </Pressable>
                             )}
                         />
