@@ -33,16 +33,18 @@ export default function WeightGraph() {
     }, [user?.username]);
 
     // how many labels you actually want to see:
-    const MAX_LABELS = 3;
+    const MAX_LABELS = 2;
     // split your full history length into roughly equal chunks:
     const step = Math.ceil(history.length / MAX_LABELS);
 
     // now build labels: only show every `step`-th point (and always show the last point)
     const formattedLabels = history.map((h, idx) => {
-        const raw = h.date.split('T')[0];
-        const [year, month, day] = raw.split('-');
-        const label = `${year}/${day}/${month}`;
-        // only show on the 0th, step, 2*step, … or the last index
+        const dt = new Date(h.date);
+        const day = dt.getDate().toString().padStart(2, '0');
+        const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+        const year = dt.getFullYear();
+        const label = `${day}/${month}/${year}`;
+        // only show on the 1st, middle and last index
         if (idx % step === 0 || idx === history.length - 1) {
             return label;
         }
@@ -72,7 +74,6 @@ export default function WeightGraph() {
                         yAxisSuffix="kg"
                         withInnerLines={true}        // draw horizontal grid lines
                         withVerticalLines={false}     // turn off vertical grid (optional)
-                        withOuterLines={false}        // turn off outer border
                         chartConfig={{
                             backgroundGradientFrom: '#fff',
                             backgroundGradientTo: '#fff',
@@ -104,12 +105,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 16,
         marginVertical: 16,
-        // iOS shadow
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 8,
-        // Android elevation
         elevation: 4,
     },
     chartTitle: {
@@ -120,8 +115,8 @@ const styles = StyleSheet.create({
     },
     chart: {
         marginVertical: 0,
-        borderRadius: 8,
         alignSelf: 'center',
-        marginLeft: -16
+        marginLeft: -16,
+        marginRight: -8,
     },
 });
