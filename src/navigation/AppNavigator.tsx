@@ -84,7 +84,6 @@ const BottomTabs = () => {
 export default function AppNavigator() {
     return (
         <LocalizationProvider>
-
             <UserProvider>
                 <WorkoutProvider>
                     <MealProvider>

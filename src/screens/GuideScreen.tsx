@@ -7,7 +7,7 @@ const GuideScreen: React.FC = () => {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            <Text style={styles.title}>{t('Welcome to MyFitnessApp App Guide')}</Text>
+            <Text style={styles.title}>{t('Welcome to MyFitnessApp Guide')}</Text>
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>{t('1. Getting Started')}</Text>

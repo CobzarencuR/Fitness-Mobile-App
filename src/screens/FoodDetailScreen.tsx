@@ -90,40 +90,60 @@ const FoodDetailScreen = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.header}>{t('Food Details')}</Text>
-            <Text style={styles.label}>{t('Name')}: {td(food, 'foodname')}</Text>
-            <Text style={styles.label}>{t('Default grams')}: {food.grams}g</Text>
-            <Text style={styles.label}>{t('Enter new grams')}:</Text>
-            <TextInput
-                style={styles.input}
-                value={grams}
-                onChangeText={setGrams}
-                keyboardType="numeric"
-            />
-            <Text style={styles.details}>
-                {t('Calories')}: {Math.round(food.calories * (parseFloat(grams) / food.grams))} kcal
-            </Text>
-            <Text style={styles.details}>
-                {t('Protein')}: {(food.protein * (parseFloat(grams) / food.grams)).toFixed(1)}g | {t('Carbs')}:{' '}
-                {(food.carbs * (parseFloat(grams) / food.grams)).toFixed(1)}g | {t('Fats')}:{' '}
-                {(food.fats * (parseFloat(grams) / food.grams)).toFixed(1)}g
-            </Text>
+            <View style={styles.content}>
+                <Text style={styles.label}>{t('Name')}: {td(food, 'foodname')}</Text>
+                <View style={styles.row}>
+                    <Text style={styles.inlineLabel}>{t('Grams')}:</Text>
+                    <TextInput
+                        style={styles.inlineInput}
+                        value={grams}
+                        onChangeText={setGrams}
+                        keyboardType="numeric"
+                    />
+                    <Text style={styles.unit}> g</Text>
+                </View>
+                <Text style={styles.details}>
+                    {t('Calories')}: {Math.round(food.calories * (parseFloat(grams) / food.grams))} kcal
+                </Text>
+                <Text style={styles.details}>
+                    {t('Protein')}: {(food.protein * (parseFloat(grams) / food.grams)).toFixed(1)}g | {t('Carbs')}:{' '}
+                    {(food.carbs * (parseFloat(grams) / food.grams)).toFixed(1)}g | {t('Fats')}:{' '}
+                    {(food.fats * (parseFloat(grams) / food.grams)).toFixed(1)}g
+                </Text>
+            </View>
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                 <Text style={styles.saveButtonText}>{t('Save')}</Text>
             </TouchableOpacity>
-        </View>
+        </View >
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, justifyContent: 'center' },
-    header: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+    container: { flex: 1, padding: 16, justifyContent: 'space-between' },
+    header: { fontSize: 20, fontWeight: 'bold', marginTop: 40, marginBottom: 32, textAlign: 'center' },
+    content: {
+        flex: 1
+    },
     label: { fontSize: 16, marginBottom: 8 },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 5,
-        padding: 10,
-        marginBottom: 12,
+    row: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginBottom: 24,
+    },
+    inlineLabel: {
+        fontSize: 16,
+        marginRight: 2,
+    },
+    inlineInput: {
+        minWidth: 15,
+        fontSize: 16,
+        padding: 0,
+        margin: 0,
+        borderWidth: 0,
+        textAlign: 'right',
+    },
+    unit: {
+        fontSize: 16,
     },
     details: { fontSize: 16, marginBottom: 8, textAlign: 'center' },
     saveButton: {
@@ -131,7 +151,6 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 5,
         alignItems: 'center',
-        marginTop: 16,
     },
     saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
 });

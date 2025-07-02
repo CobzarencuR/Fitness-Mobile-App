@@ -28,7 +28,7 @@ const AboutScreen: React.FC = () => {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>{t('About the Developer')}</Text>
                 <Text style={styles.sectionText}>
-                    {t('Hi! I\'m [Your Name], a computer science student who loves fitness. Through this project, I applied academic concepts in real-world app development, learning React Native, TypeScript, and user-centered design along the way.')}
+                    {t('Hi! I\'m Robert Cobzarencu, a computer science student who loves fitness. Through this project, I applied academic concepts in real-world app development, learning React Native, TypeScript, and user-centered design along the way.')}
                 </Text>
             </View>
             <View style={styles.separator} />
