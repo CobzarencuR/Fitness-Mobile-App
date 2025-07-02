@@ -32,11 +32,11 @@ export default function HomeScreen() {
                 <TouchableOpacity
                     style={styles.squareButton}
                     activeOpacity={0.7}
-                // onPress={() => navigation.navigate('Settings')}
+                    onPress={() => navigation.navigate('GuideScreen')}
                 >
-                    <Text style={styles.buttonTitle}>📃 {t('Blog')}</Text>
+                    <Text style={styles.buttonTitle}>📃 {t('App Guide')}</Text>
                     <Text style={styles.buttonDesc}>
-                        {t('See new meal recepies and training advice')}
+                        {t('Read this guide to understand how to use the app')}
                     </Text>
                 </TouchableOpacity>
             </View>

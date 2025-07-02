@@ -22,6 +22,8 @@ import { ChatProvider } from '../context/ChatContext';
 import LanguageScreen from '../screens/LanguageScreen';
 
 import { LocalizationProvider, useLocalization } from '../context/LocalizationContext';
+import GuideScreen from '../screens/GuideScreen';
+import AboutScreen from '../screens/AboutScreen';
 
 export type RootStackParamList = {
     Login: undefined;
@@ -34,6 +36,8 @@ export type RootStackParamList = {
     ChatList: undefined;
     ChatRoom: { roomId: number; roomName: string };
     Language: undefined;
+    GuideScreen: undefined;
+    AboutScreen: undefined;
 };
 
 export type RootTabParamList = {
@@ -97,6 +101,8 @@ export default function AppNavigator() {
                                     <Stack.Screen name="ChatList" component={ChatListScreen} />
                                     <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
                                     <Stack.Screen name="Language" component={LanguageScreen} />
+                                    <Stack.Screen name="GuideScreen" component={GuideScreen} />
+                                    <Stack.Screen name="AboutScreen" component={AboutScreen} />
                                 </Stack.Navigator>
                             </NavigationContainer>
                         </ChatProvider>

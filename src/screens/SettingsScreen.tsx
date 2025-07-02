@@ -15,7 +15,7 @@ export default function SettingsScreen({ navigation }: Props) {
         { name: t("Profile"), screen: "Profile" },
         { name: t("Chat"), screen: "ChatList" },
         { name: t("Language"), screen: "Language" },
-        { name: t("Security"), screen: "SecurityScreen" },
+        { name: t("App Guide"), screen: "GuideScreen" },
         { name: t("About"), screen: "AboutScreen" },
     ];
 
