@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, TextInput, } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, TextInput, ScrollView, } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -101,44 +101,48 @@ const MealCategoryScreen = () => {
     }
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.header}>{t('Select a Food Category')}</Text>
-            {categoriesWithFilteredFoods.map(({ categoryObj, filteredFoods }) => (
-                <View key={categoryObj.category} style={styles.categoryContainer}>
-                    <TouchableOpacity
-                        style={styles.categoryButton}
-                        onPress={() => toggleCategory(categoryObj.category)}
-                    >
-                        <Text style={styles.categoryText}>{td(categoryObj, 'category')}</Text>
-                    </TouchableOpacity>
-                    {expandedCategories[categoryObj.category] && (
-                        <View style={styles.dropdownContainer}>
-                            <TextInput
-                                style={styles.searchBar}
-                                placeholder={t('Search in', { category: td(categoryObj, 'category'), })}
-                                value={searchQueries[categoryObj.category] || ''}
-                                onChangeText={(text) =>
-                                    setSearchQueries((prev) => ({ ...prev, [categoryObj.category]: text }))
-                                }
-                            />
-                            <FlatList
-                                data={filteredFoods}
-                                keyExtractor={(item, index) =>
-                                    item.foodid ? item.foodid.toString() : index.toString()
-                                }
-                                renderItem={renderFoodItem}
-                                style={styles.foodList}
-                            />
-                        </View>
-                    )}
-                </View>
-            ))}
-        </View>
+        <ScrollView>
+            <View style={styles.container}>
+                <Text style={styles.header}>{t('Select a Food Category')}</Text>
+                {categoriesWithFilteredFoods.map(({ categoryObj, filteredFoods }) => (
+                    <View key={categoryObj.category} style={styles.categoryContainer}>
+                        <TouchableOpacity
+                            style={styles.categoryButton}
+                            onPress={() => toggleCategory(categoryObj.category)}
+                        >
+                            <Text style={styles.categoryText}>{td(categoryObj, 'category')}</Text>
+                        </TouchableOpacity>
+                        {expandedCategories[categoryObj.category] && (
+                            <View style={styles.dropdownContainer}>
+                                <TextInput
+                                    style={styles.searchBar}
+                                    placeholder={t('Search in', { category: td(categoryObj, 'category'), })}
+                                    value={searchQueries[categoryObj.category] || ''}
+                                    onChangeText={(text) =>
+                                        setSearchQueries((prev) => ({ ...prev, [categoryObj.category]: text }))
+                                    }
+                                />
+                                <FlatList
+                                    data={filteredFoods}
+                                    scrollEnabled={false}
+                                    nestedScrollEnabled
+                                    keyExtractor={(item, index) =>
+                                        item.foodid ? item.foodid.toString() : index.toString()
+                                    }
+                                    renderItem={renderFoodItem}
+                                    style={styles.foodList}
+                                />
+                            </View>
+                        )}
+                    </View>
+                ))}
+            </View>
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+    container: { flex: 1, padding: 16 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     categoryContainer: { marginBottom: 16 },
