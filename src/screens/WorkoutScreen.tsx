@@ -68,7 +68,7 @@ async function rehydratePlan(
         week.map((day) =>
             day.map((item: any) => {
                 const detail = detailMap.get(item.name)!;
-                return { ...detail, sets: item.sets, reps: item.reps, weight: item.weight };
+                return { ...detail, sets: item.sets, reps: item.reps };
             })
         )
     );
@@ -97,7 +97,7 @@ async function generateFreshPlan(
                 const base = detailMap.get(name)!;
                 const sets = experience === 'beginner' ? 3 : 4;
                 const reps = (base.movement === 'compound' ? 8 : 10) + monthOffset;
-                return { ...base, sets, reps, weight: 'TBD' };
+                return { ...base, sets, reps };
             })
         );
     });
@@ -197,7 +197,7 @@ export default function WorkoutScreen() {
             setLoading(false);
 
             // Persist minimal and metadata
-            const minimal = freshPlan.map(week => week.map(day => day.map(({ name, sets, reps, weight }) => ({ name, sets, reps, weight }))));
+            const minimal = freshPlan.map(week => week.map(day => day.map(({ name, sets, reps }) => ({ name, sets, reps }))));
             AsyncStorage.setItem(planKey, JSON.stringify(minimal));
             AsyncStorage.setItem(metaKey, JSON.stringify({ experience, personType, trainingDays }));
             fetch(`${BACKEND_URL}/saveWorkoutPlan`, {
@@ -240,7 +240,7 @@ export default function WorkoutScreen() {
             w === weekIndex
                 ? week.map((day, d) =>
                     d === modalDay
-                        ? day.map((e, i) => i === modalIdx ? { ...newEx, sets: e.sets, reps: e.reps, weight: e.weight } : e)
+                        ? day.map((e, i) => i === modalIdx ? { ...newEx, sets: e.sets, reps: e.reps } : e)
                         : day
                 )
                 : week
@@ -248,7 +248,7 @@ export default function WorkoutScreen() {
         setPlans(updated);
         setSwapVisible(false);
         // persist swap
-        const minimal = updated.map(w => w.map(d => d.map(({ name, sets, reps, weight }) => ({ name, sets, reps, weight }))));
+        const minimal = updated.map(w => w.map(d => d.map(({ name, sets, reps }) => ({ name, sets, reps }))));
         AsyncStorage.setItem(
             `workoutPlan:${user!.username}`,
             JSON.stringify(minimal)
@@ -292,7 +292,7 @@ export default function WorkoutScreen() {
                                 onLongPress={() => handleLongPress(ex, index, idx)}
                             >
                                 <Text style={styles.exerciseName}>{td(ex, 'name')}</Text>
-                                <Text style={styles.exerciseDetails}>{ex.sets}×{ex.reps} @ {ex.weight}</Text>
+                                <Text style={styles.exerciseDetails}>{ex.sets} sets × {ex.reps} reps</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
