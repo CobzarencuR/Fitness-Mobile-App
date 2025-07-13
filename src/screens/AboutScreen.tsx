@@ -40,7 +40,7 @@ const AboutScreen: React.FC = () => {
                 </Text>
             </View>
 
-            <Text style={styles.footer}>{t('Version 1.0. Built with ❤️ by')} [Your Name]</Text>
+            <Text style={styles.footer}>{t('Version 1.0 built with ❤️ by')} Robert Cobzarencu</Text>
         </ScrollView>
     );
 };

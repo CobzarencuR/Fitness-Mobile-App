@@ -5,7 +5,7 @@ import * as RNLocalize from 'react-native-localize';
 import en from '../language/en.json';
 import ro from '../language/ro.json';
 
-type Translations = typeof en;
+type Translations = Record<string, string>;
 type Locale = 'en' | 'ro';
 
 interface LocalizationContextProps {
@@ -30,10 +30,7 @@ export const LocalizationProvider = ({ children }: { children: ReactNode }) => {
 
     const t = useMemo(() => {
         return (key: string, params?: Record<string, string | number>) => {
-            const raw = key
-                .split('.')
-                .reduce((o: any, k) => o?.[k], contexts[locale]) as string
-                || key;
+            const raw = contexts[locale][key] ?? key;
             if (!params) return raw;
             return Object.entries(params).reduce(
                 (str, [k, v]) => str.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
@@ -44,7 +41,6 @@ export const LocalizationProvider = ({ children }: { children: ReactNode }) => {
 
     const td = useMemo(() => {
         return <R extends Record<string, any>>(rec: R, baseKey: string) => {
-            // try record[`${baseKey}_${locale}`], then fallback to English, then fallback to any `baseKey`
             const dual = `${baseKey}_${locale}`;
             const fallback = `${baseKey}_en`;
             return String(rec[dual] ?? rec[fallback] ?? rec[baseKey] ?? '');
