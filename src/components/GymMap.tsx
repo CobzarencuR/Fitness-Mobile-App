@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, PermissionsAndroid, Platform, ActivityIndicator, StyleSheet } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
+import Config from 'react-native-config';
 
-const GOOGLE_API_KEY = 'AIzaSyAywQXcdigOxUX6R3EimTwu1LR8mN-K6Nc';
+const GOOGLE_API_KEY = Config.GOOGLE_API_KEY;
 
 export default function GymMap() {
     const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -13,7 +14,6 @@ export default function GymMap() {
     useEffect(() => {
         (async () => {
             const permission = await requestLocationPermission();
-
             if (!permission) {
                 console.warn('[GymMap] Location permission denied');
                 setLoading(false);
