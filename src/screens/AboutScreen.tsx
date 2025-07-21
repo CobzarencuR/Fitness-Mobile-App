@@ -7,12 +7,12 @@ const AboutScreen: React.FC = () => {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            <Text style={styles.title}>{t('About MyFitnessApp')}</Text>
+            <Text style={styles.title}>{t('About MyFitGlyph')}</Text>
 
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('What Is MyFitnessApp?')}</Text>
+                <Text style={styles.sectionTitle}>{t('What Is MyFitGlyph?')}</Text>
                 <Text style={styles.sectionText}>
-                    {t('MyFitnessApp is a comprehensive fitness and nutrition companion designed to help you track your meals, workouts, and overall progress in one place. Whether you\'re aiming to lose weight, build muscle, or maintain a healthier lifestyle, MyFitnessApp adapts to your goals.')}
+                    {t('MyFitGlyph is a comprehensive fitness and nutrition companion designed to help you track your meals, workouts, and overall progress in one place. Whether you\'re aiming to lose weight, build muscle, or maintain a healthier lifestyle, MyFitGlyph adapts to your goals.')}
                 </Text>
             </View>
             <View style={styles.separator} />
@@ -20,7 +20,7 @@ const AboutScreen: React.FC = () => {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>{t('Our Story')}</Text>
                 <Text style={styles.sectionText}>
-                    {t('This app began as my bachelor thesis project at university. As a student passionate about health and technology, I wanted to build a tool that combined robust tracking features with an intuitive, mobile-first design. Over months of research, development, and testing, MyFitnessApp evolved into the app you see today.')}
+                    {t('This app began as my bachelor thesis project at university. As a student passionate about health and technology, I wanted to build a tool that combined robust tracking features with an intuitive, mobile-first design. Over months of research, development, and testing, MyFitGlyph evolved into the app you see today.')}
                 </Text>
             </View>
             <View style={styles.separator} />
@@ -36,7 +36,7 @@ const AboutScreen: React.FC = () => {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>{t('Looking Ahead')}</Text>
                 <Text style={styles.sectionText}>
-                    {t('MyFitnessApp is just getting started. Future updates will include social features, personalized coaching insights, and expanded food and exercise databases. Stay tuned and thank you for being part of this journey!')}
+                    {t('MyFitGlyph is just getting started. Future updates will include social features, personalized coaching insights, and expanded food and exercise databases. Stay tuned and thank you for being part of this journey!')}
                 </Text>
             </View>
 

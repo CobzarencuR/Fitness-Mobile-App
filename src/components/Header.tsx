@@ -54,7 +54,7 @@ export default function Header() {
                     <Text style={styles.photoPlaceholder}>{t('Add Photo')}</Text>
                 )}
             </View>
-            <Text style={styles.headerText}>MyFitnessApp</Text>
+            <Text style={styles.headerText}>{t('MyFitGlyph')}</Text>
             <SettingsButton />
         </View>
     );
