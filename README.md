@@ -25,4 +25,4 @@ Developed a cross-platform mobile app as my Bachelor's thesis project (graded 10
 
 ### 📱 App Screenshots  
 You can view the app screens here:  
-👉 https://drive.google.com/file/d/1Uk3aV2rIOBH7a9QJT6uimDsYbrEYyA_d/view?usp=drive_link
+👉 https://drive.google.com/file/d/1Uk3aV2rIOBH7a9QjTGuimDsYbrEYyA_d/view?usp=sharing&usp=embed_facebook
