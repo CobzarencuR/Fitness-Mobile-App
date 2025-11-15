@@ -14,11 +14,12 @@ Developed a cross-platform mobile app as my Bachelor's thesis project (graded 10
 ### 🛠️ Technologies Used
 
 - React Native & TypeScript  
-- Node.js backend  
+- Node.js + Express.js
 - PostgreSQL database  
-- JWT authentication  
+- JWT auth + bcryptjs
+- Socket.IO (real-time chat)
 - Google Maps API (via React Native Maps)  
-- React Native Config for env management 
+- React Native Config for env management
 
 ---
 
